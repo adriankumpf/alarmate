@@ -10,13 +10,14 @@ use std::error::Error;
 use std::net::Ipv4Addr;
 use std::result;
 
-use self::resources::{Area, DeviceKind, Mode, Status};
+pub use self::resources::{Area, Mode};
+use self::resources::{DeviceKind, Status};
 
 macro_rules! err {
     ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) }
 }
 
-type Result<T = ()> = result::Result<T, Box<dyn Error>>;
+pub type Result<T = ()> = result::Result<T, Box<dyn Error>>;
 
 const X_TOKEN: &'static str = "x-token";
 
@@ -26,14 +27,11 @@ pub struct Client {
     username: String,
     password: String,
     ip_address: Ipv4Addr,
-    token: Option<String>,
+    // TODO
+    pub token: Option<String>,
 }
 
 impl Client {
-    fn url(&self, path: &str) -> Result<reqwest::Url> {
-        Ok(format!("https://{}/action/{}", self.ip_address, path).parse()?)
-    }
-
     pub fn new(username: &str, password: &str, ip_address: Ipv4Addr) -> Client {
         Client {
             client: reqwest::Client::new(),
@@ -44,19 +42,7 @@ impl Client {
         }
     }
 
-    fn get_token(&self) -> Result<String> {
-        let url = self.url("tokenGet")?;
-
-        let response = self
-            .client
-            .get(url)
-            .basic_auth(&self.username, Some(&self.password))
-            .send()?;
-
-        ApiResponse::from_response(response)?.message()
-    }
-
-    fn list_devices(&self) -> Result<DeviceList> {
+    pub fn list_devices(&self) -> Result<Vec<Device>> {
         let url = self.url("deviceListGet")?;
 
         let mut response = self
@@ -71,11 +57,12 @@ impl Client {
 
         let response = response.text()?;
         let response = Regex::new(r"\u0009")?.replace_all(&response, " ");
+        let device_list: DeviceList = serde_json::from_str(&response)?;
 
-        Ok(serde_json::from_str(&response)?)
+        Ok(device_list.list)
     }
 
-    fn get_status(&self) -> Result<((Area, Mode), (Area, Mode))> {
+    pub fn get_status(&self) -> Result<((Area, Mode), (Area, Mode))> {
         let url = self.url("panelCondGet")?;
 
         let response = self
@@ -92,7 +79,7 @@ impl Client {
         ))
     }
 
-    fn change_mode(&self, area: Area, mode: Mode) -> Result {
+    pub fn change_mode(&self, area: Area, mode: Mode) -> Result {
         let url = self.url("panelCondPost")?;
 
         // TODO
@@ -110,6 +97,22 @@ impl Client {
 
         Ok(())
     }
+
+    fn url(&self, path: &str) -> Result<reqwest::Url> {
+        Ok(format!("https://{}/action/{}", self.ip_address, path).parse()?)
+    }
+
+    pub fn get_token(&self) -> Result<String> {
+        let url = self.url("tokenGet")?;
+
+        let response = self
+            .client
+            .get(url)
+            .basic_auth(&self.username, Some(&self.password))
+            .send()?;
+
+        ApiResponse::from_response(response)?.message()
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -119,7 +122,7 @@ struct DeviceList {
 }
 
 #[derive(Deserialize, Debug)]
-struct Device {
+pub struct Device {
     sid: String,
     #[serde(rename = "type")]
     kind: DeviceKind,
@@ -158,7 +161,7 @@ struct ApiResponse {
 impl ApiResponse {
     fn from_response(mut response: reqwest::Response) -> Result<Self> {
         if !response.status().is_success() {
-            return err!("{}", response.text()?);
+            return err!("A: {}", response.text()?);
         }
 
         Ok(response.json()?)
@@ -169,7 +172,7 @@ impl ApiResponse {
         D: serde::de::DeserializeOwned,
     {
         if !response.status().is_success() {
-            return err!("{}", response.text()?);
+            return err!("B: {}", response.text()?);
         }
 
         let response = response.text()?;
@@ -179,26 +182,10 @@ impl ApiResponse {
     }
 
     fn message(self) -> Result<String> {
-        if let Status::Ok = self.result {
-            return err!("{}", self.message);
+        if let Status::Error = self.result {
+            return err!("C: {}", self.message);
         }
 
         Ok(self.message)
     }
-}
-
-fn main() -> Result {
-    let mut client = Client::new(username, password, host);
-    client.token = Some(client.get_token()?);
-
-    let res = client.change_mode(Area::Area1, Mode::Disarmed)?;
-    println!("{:?}", res);
-
-    let devices = client.list_devices()?;
-    println!("{:#?}", devices);
-
-    let status = client.get_status()?;
-    println!("{:?}", status);
-
-    Ok(())
 }

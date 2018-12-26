@@ -5,6 +5,43 @@ macro_rules! enum_number {
             $($variant = $value,)*
         }
 
+                impl ::std::str::FromStr for $name {
+            type Err = String;
+
+            fn from_str(s: &str) -> Result<Self,Self::Err> {
+                match s {
+                    $(stringify!($variant) |
+                    _ if s.eq_ignore_ascii_case(stringify!($variant)) => Ok($name::$variant),)+
+                    _                => Err({
+                                            let v = vec![
+                                                $(stringify!($variant),)+
+                                            ];
+                                            format!("valid values:{}",
+                                                v.iter().fold(String::new(), |a, i| {
+                                                    a + &format!(" {}", i)[..]
+                                                }))
+                                        })
+                }
+            }
+        }
+
+        impl ::std::fmt::Display for $name {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                match *self {
+                    $($name::$variant => write!(f, stringify!($variant)),)+
+                }
+            }
+        }
+
+        impl $name {
+            #[allow(dead_code)]
+            pub fn variants() -> Vec<&'static str> {
+                vec![
+                    $(stringify!($variant),)+
+                ]
+            }
+        }
+
         impl ::serde::Serialize for $name {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
