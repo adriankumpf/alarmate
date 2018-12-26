@@ -101,7 +101,6 @@ fn main() -> Result {
             area,
         } => {
             let mut client = Client::new(&username, &password, ip_address);
-            client.token = Some(client.get_token()?);
             writeln!(io::stdout(), "{:#?}", client.change_mode(area, mode)?)?;
         }
     }
