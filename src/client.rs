@@ -1,4 +1,3 @@
-use regex::Regex;
 use reqwest::header;
 use serde::Serialize;
 
@@ -9,8 +8,9 @@ use crate::err;
 use crate::resources::{devices, panel, result};
 use crate::Result;
 
-const X_TOKEN: &'static str = "x-token";
+const X_TOKEN: &str = "x-token";
 
+/// Holds the credentials and a session token
 #[derive(Clone)]
 pub struct Client {
     client: reqwest::Client,
@@ -21,22 +21,23 @@ pub struct Client {
 }
 
 impl Client {
+    /// Construct a client
     pub fn new(username: &str, password: &str, ip_address: Ipv4Addr) -> Client {
         Client {
             client: reqwest::Client::new(),
             username: username.into(),
             password: password.into(),
-            ip_address: ip_address.into(),
+            ip_address,
             token: None,
         }
     }
 
-    /// Get the status of the Alarm Panel.
+    /// Get the status of the Alarm Panel
     pub fn get_status(&self) -> Result<((Area, Mode), (Area, Mode))> {
         Ok(self.get::<panel::Status>("panelCondGet")?.inner())
     }
 
-    /// Change the mode of the given area.
+    /// Change the mode of the given area
     pub fn change_mode(&mut self, area: Area, mode: Mode) -> Result {
         let payload = &[("mode", mode as u8), ("area", area as u8)];
 
@@ -46,7 +47,7 @@ impl Client {
         Ok(())
     }
 
-    /// List all devices managed by the alarm panel.
+    /// List all devices managed by the alarm panel
     pub fn list_devices(&self) -> Result<Vec<devices::Device>> {
         Ok(self.get::<devices::List>("deviceListGet")?.inner())
     }
@@ -110,8 +111,7 @@ where
         return err!("B: {:?}: {}", response.status(), response.text()?);
     }
 
-    let response = response.text()?;
-    let response = Regex::new(r"\u0009")?.replace_all(&response, " ");
+    let response = response.text()?.replace("\u{009}", "");
 
     Ok(serde_json::from_str(&response)?)
 }

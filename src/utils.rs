@@ -5,10 +5,16 @@ macro_rules! err {
 
 #[macro_export]
 macro_rules! enum_number {
-    ($name:ident { $($variant:ident = $value:expr, )* }) => {
+    (
+        $(#[$enum_attr:meta])*
+        $name:ident {
+            $(#[$attr:meta] $variant:ident = $value:expr, )*
+        }
+    ) => {
+        $(#[$enum_attr])*
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         pub enum $name {
-            $($variant = $value,)*
+            $(#[$attr] $variant = $value,)*
         }
 
                 impl ::std::str::FromStr for $name {
@@ -32,7 +38,7 @@ macro_rules! enum_number {
         }
 
         impl ::std::fmt::Display for $name {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 match *self {
                     $($name::$variant => write!(f, stringify!($variant)),)+
                 }
@@ -40,7 +46,7 @@ macro_rules! enum_number {
         }
 
         impl $name {
-            #[allow(dead_code)]
+            #[allow(dead_code, missing_docs)]
             pub fn variants() -> Vec<&'static str> {
                 vec![
                     $(stringify!($variant),)+
