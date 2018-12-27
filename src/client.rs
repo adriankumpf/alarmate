@@ -4,9 +4,8 @@ use serde::Serialize;
 use std::net::Ipv4Addr;
 
 use crate::constants::{Area, Mode};
-use crate::err;
+use crate::errors::{Error, Result};
 use crate::resources::{devices, panel, result};
-use crate::Result;
 
 const X_TOKEN: &str = "x-token";
 
@@ -108,7 +107,7 @@ where
     D: serde::de::DeserializeOwned,
 {
     if !response.status().is_success() {
-        return err!("B: {:?}: {}", response.status(), response.text()?);
+        return Err(Error::Panel(response.text()?));
     }
 
     let response = response.text()?.replace("\u{009}", "");

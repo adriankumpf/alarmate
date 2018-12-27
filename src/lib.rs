@@ -14,6 +14,7 @@
 
 mod client;
 mod constants;
+mod errors;
 mod resources;
 
 #[macro_use]
@@ -21,7 +22,5 @@ mod utils;
 
 pub use self::client::Client;
 pub use self::constants::{Area, DeviceKind, Mode, Status};
+pub use self::errors::Result;
 pub use self::resources::devices::Device;
-
-/// A custom result
-pub type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;

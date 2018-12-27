@@ -1,8 +1,7 @@
 use serde::Deserialize;
 
 use crate::constants::Status;
-use crate::err;
-use crate::Result as MyResult;
+use crate::errors;
 
 #[derive(Deserialize, Debug)]
 pub struct Result {
@@ -11,9 +10,9 @@ pub struct Result {
 }
 
 impl Result {
-    pub fn ok(self) -> MyResult<String> {
+    pub fn ok(self) -> errors::Result<String> {
         if let Status::Error = self.result {
-            return err!("C: {}", self.message);
+            return Err(errors::Error::Panel(self.message));
         }
 
         Ok(self.message)
