@@ -4,7 +4,7 @@ use std::io;
 /// A `Result` alias where the `Err` case is `alarmate::Error`
 pub type Result<T = ()> = std::result::Result<T, Error>;
 
-/// Errors returned by the `arb` library.
+/// Possible Errors
 #[derive(Debug)]
 pub enum Error {
     /// An error reported by the alarm panel

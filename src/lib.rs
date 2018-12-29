@@ -10,8 +10,6 @@
 
 #![deny(missing_docs)]
 
-// #![deny(warnings)]
-
 mod client;
 mod constants;
 mod errors;
@@ -22,5 +20,5 @@ mod utils;
 
 pub use self::client::Client;
 pub use self::constants::{Area, DeviceKind, Mode, Status};
-pub use self::errors::Result;
+pub use self::errors::{Error, Result};
 pub use self::resources::devices::Device;

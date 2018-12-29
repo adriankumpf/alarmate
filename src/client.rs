@@ -5,7 +5,7 @@ use std::net::Ipv4Addr;
 
 use crate::constants::{Area, Mode};
 use crate::errors::{Error, Result};
-use crate::resources::{devices, panel, result};
+use crate::resources::{devices, panel, result, ApiResponse};
 
 const X_TOKEN: &str = "x-token";
 
@@ -33,7 +33,7 @@ impl Client {
 
     /// Get the status of the Alarm Panel
     pub fn get_status(&self) -> Result<((Area, Mode), (Area, Mode))> {
-        Ok(self.get::<panel::Status>("panelCondGet")?.inner())
+        self.get::<panel::Status>("panelCondGet")?.ok()
     }
 
     /// Change the mode of the given area
@@ -48,7 +48,7 @@ impl Client {
 
     /// List all devices managed by the alarm panel
     pub fn list_devices(&self) -> Result<Vec<devices::Device>> {
-        Ok(self.get::<devices::List>("deviceListGet")?.inner())
+        self.get::<devices::List>("deviceListGet")?.ok()
     }
 
     // Private
@@ -59,7 +59,7 @@ impl Client {
 
     fn get<T>(&self, action: &str) -> Result<T>
     where
-        T: serde::de::DeserializeOwned,
+        T: ApiResponse + serde::de::DeserializeOwned,
     {
         let response = self
             .client
@@ -73,7 +73,7 @@ impl Client {
     fn post<T, D>(&mut self, action: &str, form: &T) -> Result<D>
     where
         T: Serialize + ?Sized,
-        D: serde::de::DeserializeOwned,
+        D: ApiResponse + serde::de::DeserializeOwned,
     {
         let url = self.url(action)?;
 
@@ -104,7 +104,7 @@ impl Client {
 
 fn from_response_into<D>(mut response: reqwest::Response) -> Result<D>
 where
-    D: serde::de::DeserializeOwned,
+    D: ApiResponse + serde::de::DeserializeOwned,
 {
     if !response.status().is_success() {
         return Err(Error::Panel(response.text()?));

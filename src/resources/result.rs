@@ -1,7 +1,8 @@
 use serde::Deserialize;
 
 use crate::constants::Status;
-use crate::errors;
+use crate::errors::{Error, Result as R};
+use crate::resources::ApiResponse;
 
 #[derive(Deserialize, Debug)]
 pub struct Result {
@@ -9,10 +10,12 @@ pub struct Result {
     message: String,
 }
 
-impl Result {
-    pub fn ok(self) -> errors::Result<String> {
+impl ApiResponse for Result {
+    type Type = String;
+
+    fn ok(self) -> R<Self::Type> {
         if let Status::Error = self.result {
-            return Err(errors::Error::Panel(self.message));
+            return Err(Error::Panel(self.message));
         }
 
         Ok(self.message)
