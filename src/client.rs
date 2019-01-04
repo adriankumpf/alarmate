@@ -22,8 +22,13 @@ pub struct Client {
 impl Client {
     /// Construct a client
     pub fn new(username: &str, password: &str, ip_address: Ipv4Addr) -> Client {
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .expect("could not build reqwest::Client");
+
         Client {
-            client: reqwest::Client::new(),
+            client,
             username: username.into(),
             password: password.into(),
             ip_address,
