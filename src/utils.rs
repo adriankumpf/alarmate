@@ -1,9 +1,4 @@
 #[macro_export]
-macro_rules! err {
-    ($($tt:tt)*) => { Err(Box::<dyn std::error::Error>::from(format!($($tt)*))) }
-}
-
-#[macro_export]
 macro_rules! enum_number {
     (
         $(#[$enum_attr:meta])*

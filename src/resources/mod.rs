@@ -1,15 +1,17 @@
+use serde::de::DeserializeOwned;
+
 pub mod devices;
 pub mod panel;
-pub mod result;
+pub mod response;
 
 // pub use self::devices;
 // pub use self::panel;
-// pub use self::result;
+// pub use self::response;
 
-use crate::errors;
+use crate::errors::Result;
 
 pub trait ApiResponse {
-    type Type: serde::de::DeserializeOwned;
+    type Type: DeserializeOwned;
 
-    fn ok(self) -> errors::Result<Self::Type>;
+    fn ok(self) -> Result<Self::Type>;
 }

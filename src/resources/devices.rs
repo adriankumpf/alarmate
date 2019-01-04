@@ -1,8 +1,7 @@
 use serde::Deserialize;
 
 use crate::constants::{Area, DeviceKind, Status};
-
-use crate::errors;
+use crate::errors::Result;
 use crate::resources::ApiResponse;
 
 /// Holds information about a Lupusic Alarm / Smarthome device
@@ -30,7 +29,7 @@ pub struct List {
 impl ApiResponse for List {
     type Type = Vec<Device>;
 
-    fn ok(self) -> errors::Result<Self::Type> {
+    fn ok(self) -> Result<Self::Type> {
         Ok(self.list)
     }
 }

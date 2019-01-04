@@ -5,7 +5,7 @@ use std::net::Ipv4Addr;
 
 use crate::constants::{Area, Mode};
 use crate::errors::{Error, Result};
-use crate::resources::{devices, panel, result, ApiResponse};
+use crate::resources::{devices, panel, response, ApiResponse};
 
 const X_TOKEN: &str = "x-token";
 
@@ -40,7 +40,7 @@ impl Client {
     pub fn change_mode(&mut self, area: Area, mode: Mode) -> Result {
         let payload = &[("mode", mode as u8), ("area", area as u8)];
 
-        self.post::<_, result::Result>("panelCondPost", payload)?
+        self.post::<_, response::Response>("panelCondPost", payload)?
             .ok()?;
 
         Ok(())
@@ -98,7 +98,7 @@ impl Client {
     }
 
     fn get_token(&self) -> Result<String> {
-        Ok(self.get::<result::Result>("tokenGet")?.ok()?)
+        Ok(self.get::<response::Response>("tokenGet")?.ok()?)
     }
 }
 
@@ -107,10 +107,15 @@ where
     D: ApiResponse + serde::de::DeserializeOwned,
 {
     if !response.status().is_success() {
-        return Err(Error::Panel(response.text()?));
+        return Err(Error::Panel(format!(
+            "{}: {}",
+            response.status(),
+            response.text()?
+        )));
     }
 
     let response = response.text()?.replace("\u{009}", "");
+    let model = serde_json::from_str(&response)?;
 
-    Ok(serde_json::from_str(&response)?)
+    Ok(model)
 }
