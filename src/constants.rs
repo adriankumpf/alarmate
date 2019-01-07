@@ -44,127 +44,234 @@ Status {
 enum_number!(
 /// Enumeration of Lupusec Alarm & Smarthome devices (incomplete)
 DeviceKind {
-    /// Remote control V1
-    RemoteControlV1 = 2,
+    /// Remote Control
+    RemoteControl1 = 2,
 
-    /// Remote control V2
-    RemoteControlV2= 31,
+    /// Night Switch
+    NightSwitch = 3,
 
-    /// Nachtschalter
-    Nachtschalter = 3,
-
-    /// Door contact
+    /// Door Contact
     DoorContact = 4,
 
-    /// Water sensor
+    /// water sensor
     WaterSensor = 5,
 
-    /// Panic Button V1
-    PanicButtonV1 = 6,
+    /// Panic Button
+    PanicButton1 = 6,
 
-    /// Panic Button V2
-    PanicButtonV2 = 7,
+    /// Panic Button
+    PanicButton2 = 7,
 
-    /// Motion sensor
-    MotionSensor = 9,
+    /// KHL
+    KHL = 8,
 
-    /// CO Detector V1
-    CoDetectorV1 = 12,
+    /// Motion Detector
+    MotionDetector = 9,
 
-    /// CO Detector V2
-    CoDetectorV2 = 13,
+    /// outdoor motion detector
+    OutdoorMotionDetector = 10,
 
-    /// Heat detector V1
-    HeatDetectorV1 = 14,
+    /// Smoke / Heat detector
+    SmokedetectorAndHeatDetector = 11,
 
-    /// Heat detector V2
-    HeatDetectorV2 = 58,
+    /// GAS Detector
+    GasDetector = 12,
+
+    /// CO Detector
+    CoDetector = 13,
+
+    /// heat detector
+    HeatDetector1 = 14,
+
+    /// Keypad
+    Keypad1 = 15,
 
     /// Tag Reader
-    TagReader = 16,
+    TagReader1 = 16,
 
-    /// Temperature sensor V1
-    TemperatureSensorV1 = 20,
+    /// Keypad
+    Keypad2 = 17,
 
-    /// Temperature sensor V2
-    TemperatureSensorV2 = 75,
+    /// Keypad
+    Keypad3 = 18,
 
-    /// Medical Emergency Controller
-    MedicalEmergencyController = 21,
+    /// glass break sensor,
+    GlassBreakSensor = 19,
 
-    /// Small indoor siren
-    SmallIndoorSiren = 22,
+    /// Temperature sensor
+    TemperatureSensor1 = 20,
+
+    /// Med Alarm Detectors
+    MedAlarmDetectors = 21,
+
+    /// Mini indoor siren / status indicator
+    MiniindoorsirenAndStatusIndicator = 22,
 
     /// Siren
     Siren = 23,
 
-    /// PowerSwitch
-    PowerSwitch = 24,
+    /// Power Switch
+    PowerSwitch1 = 24,
+
+    /// Power Switch
+    PowerSwitch2 = 25,
 
     /// Repeater
     Repeater = 26,
 
-    /// PIR network camera
-    PIRNetworkCamera = 27,
+    /// PIR Camera
+    PirCamera = 27,
 
-    /// Keypad V1
-    KeypadV1 = 17,
+    /// Out View
+    OutView = 29,
 
-    /// Keypad V2
-    KeypadV2 = 37,
+    /// Remote Control
+    RemoteControl2 = 31,
 
-    /// Glas breaking sensor
-    GlasBreakingSensorV1 = 19,
+    /// PCT
+    PCT = 32,
 
-    /// Glas breaking sensor
-    GlasBreakingSensorV2 = 39,
+    /// Sensor Input
+    SensorInput = 33,
 
-    /// Indoor siren
+    /// Sudden Motion Sensor
+    SuddenMotionSensor1 = 34,
+
+    /// NT
+    NT = 35,
+
+    /// UT
+    UT = 36,
+
+    /// Keypad
+    Keypad4 = 37,
+
+    /// Tag Reader
+    TagReader2 = 38,
+
+    /// Glass break detector
+    GlassBreakDetector = 39,
+
+    /// Temperature sensor
+    TemperatureSensor2 = 40,
+
+    /// Temperature sensor
+    TemperatureSensor3 = 41,
+
+    /// Temperature sensor
+    TemperatureSensor4 = 42,
+
+    /// WTGGPS
+    WTGGPS = 43,
+
+    /// Dialer
+    Dialer = 44,
+
+    /// indoor siren
     IndoorSiren = 45,
 
-    /// Outdoor Siren
+    /// outdoor siren
     OutdoorSiren = 46,
 
-    /// Power Switch Meter
-    PowerSwitchMeter = 48,
+    /// HRRs
+    HRRs = 47,
+
+    /// Power Switch meters
+    PowerSwitchMeters = 48,
+
+    /// WTRV
+    WTRV = 49,
+
+    /// Power Meter
+    PowerMeter = 50,
+
+    /// Thermostat (Danfoss)
+    ThermostatDanfoss = 51,
 
     /// UPIC
     UPIC = 52,
 
-    /// Smoke detector V1
-    SmokeDetectorV1 = 54,
+    /// Dimmer
+    Dimmer1 = 53,
 
-    /// Smoke detector V2
-    SmokeDetectorV2 = 67,
+    /// Room sensor
+    RoomSensor = 54,
 
-    /// Smoke / Heat detector
-    SmokeAndHeatDetector = 11,
+    /// Radon sensor
+    RadonSensor = 55,
+
+    /// thermostat (Horstmann)
+    ThermostatHorstmann = 56,
+
+    /// Door Lock
+    DoorLock = 57,
+
+    /// heat detector
+    HeatDetector2 = 58,
+
+    /// Sudden Motion Sensor
+    SuddenMotionSensor2 = 59,
+
+    /// Sudden Motion Sensor
+    SuddenMotionSensor3 = 60,
 
     /// Remote Switch
     RemoteSwitch = 61,
 
+    /// Heat Meter
+    HeatMeter = 62,
+
+    /// Water Meter
+    WaterMeter = 63,
+
+    /// gas meters
+    GasMeters = 64,
+
     /// Dimmer
-    Dimmer = 66,
+    Dimmer2 = 66,
 
-    /// Radiator thermostat V1
-    RadiatorThermostatV1   = 73,
+    /// Smoke Detector
+    SmokeDetector = 67,
 
-    /// Radiator thermostat V2
-    RadiatorThermostatV2   = 79,
+    /// Thermostat (Elko)
+    ThermostatElko = 68,
+
+    /// IP Camera
+    IpCamera = 69,
+
+    /// Door Lock (Secure)
+    DoorlockSecure = 70,
+
+    /// Thermostat (RCS)
+    ThermostatRcs_ = 71,
+
+    /// Door Lock (Yale)
+    DoorlockYale = 72,
+
+    /// Thermostat
+    Thermostat = 73,
 
     /// Hue
     Hue = 74,
 
-    /// Shutter relay
-    ShutterRelay = 76,
+    /// Temperature Sensor
+    TemperatureSensor5 = 75,
 
-    /// Light sensor
-    LightSensor = 78,
+    /// Shutter
+    Shutter = 76,
 
+    /// Lightsensor
+    Lightsensor = 78,
+
+    /// Radiator Thermostat
+    RadiatorThermostat = 79,
+
+    /// Awning
+    Awning = 80,
 
     /// Smart Switch
     SmartSwitch = 81,
 
-    /// Vibration sensor
-    VibrationSensor = 93,
+    /// Shocksensor
+    Shocksensor = 93,
 });
