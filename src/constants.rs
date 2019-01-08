@@ -42,6 +42,16 @@ Status {
 });
 
 enum_number!(
+/// Possible states of a binary sensor
+State {
+    /// Closed
+    Closed = 0,
+
+    /// Open
+    Open = 1,
+});
+
+enum_number!(
 /// Enumeration of Lupusec Alarm & Smarthome devices (incomplete)
 DeviceKind {
     /// Remote Control

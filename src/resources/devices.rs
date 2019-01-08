@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::constants::{Area, DeviceKind, Status};
+use crate::constants::{Area, DeviceKind, State, Status};
 use crate::errors::Result;
 use crate::resources::ApiResponse;
 
@@ -12,6 +12,8 @@ pub struct Device {
     kind: DeviceKind,
     name: String,
     area: Area,
+    #[serde(rename = "status_ex")]
+    state: State,
     #[serde(rename = "cond_ok")]
     condition: Status,
     #[serde(rename = "battery_ok")]
