@@ -26,6 +26,20 @@ pub enum Error {
     Io(io::Error),
 }
 
+impl Error {
+    /// Indicates whether an error represents a session timeout issued by the lupusec panel.
+    pub fn is_session_timeout(&self) -> bool {
+        match *self {
+            Error::Panel(ref err)
+                if err == "401 Unauthorized: Zugriff verweigert: Sitzung abgelaufen!" =>
+            {
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(std::error::Error::description(self))?;

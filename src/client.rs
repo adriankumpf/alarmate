@@ -38,14 +38,14 @@ impl Client {
 
     /// Get the status of the Alarm Panel
     pub fn get_status(&self) -> Result<((Area, Mode), (Area, Mode))> {
-        self.get::<panel::Status>("panelCondGet")?.ok()
+        self.get::<panel::Status>("panelCondGet", true)?.ok()
     }
 
     /// Change the mode of the given area
     pub fn change_mode(&mut self, area: Area, mode: Mode) -> Result {
         let payload = &[("mode", mode as u8), ("area", area as u8)];
 
-        self.post::<_, response::Response>("panelCondPost", payload)?
+        self.post::<_, response::Response>("panelCondPost", payload, true)?
             .ok()?;
 
         Ok(())
@@ -53,7 +53,7 @@ impl Client {
 
     /// List all devices managed by the alarm panel
     pub fn list_devices(&self) -> Result<Vec<devices::Device>> {
-        self.get::<devices::List>("deviceListGet")?.ok()
+        self.get::<devices::List>("deviceListGet", true)?.ok()
     }
 
     // Private
@@ -62,7 +62,7 @@ impl Client {
         Ok(format!("https://{}/action/{}", self.ip_address, path).parse()?)
     }
 
-    fn get<T>(&self, action: &str) -> Result<T>
+    fn get<T>(&self, action: &str, retry: bool) -> Result<T>
     where
         T: ApiResponse + serde::de::DeserializeOwned,
     {
@@ -72,10 +72,13 @@ impl Client {
             .basic_auth(&self.username, Some(&self.password))
             .send()?;
 
-        Ok(from_response_into(response)?)
+        match from_response_into(response) {
+            Err(ref error) if error.is_session_timeout() && retry => self.get(action, false),
+            other => other,
+        }
     }
 
-    fn post<T, D>(&mut self, action: &str, form: &T) -> Result<D>
+    fn post<T, D>(&mut self, action: &str, form: &T, retry: bool) -> Result<D>
     where
         T: Serialize + ?Sized,
         D: ApiResponse + serde::de::DeserializeOwned,
@@ -99,11 +102,17 @@ impl Client {
             .header(X_TOKEN, header::HeaderValue::from_str(&token)?)
             .send()?;
 
-        Ok(from_response_into(response)?)
+        match from_response_into(response) {
+            Err(ref error) if error.is_session_timeout() && retry => {
+                self.token = None;
+                self.post(action, form, false)
+            }
+            other => other,
+        }
     }
 
     fn get_token(&self) -> Result<String> {
-        Ok(self.get::<response::Response>("tokenGet")?.ok()?)
+        Ok(self.get::<response::Response>("tokenGet", true)?.ok()?)
     }
 }
 
