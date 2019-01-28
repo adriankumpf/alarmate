@@ -1,11 +1,11 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::constants::{Area, DeviceKind, State, Status};
 use crate::errors::Result;
 use crate::resources::ApiResponse;
 
 /// Holds information about a Lupusic Alarm / Smarthome device
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Device {
     sid: String,
     #[serde(rename = "type")]

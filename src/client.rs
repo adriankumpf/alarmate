@@ -6,6 +6,7 @@ use std::net::Ipv4Addr;
 use crate::constants::{Area, Mode};
 use crate::errors::{Error, Result};
 use crate::resources::{devices, panel, response, ApiResponse};
+use crate::Modes;
 
 const X_TOKEN: &str = "x-token";
 
@@ -37,8 +38,8 @@ impl Client {
     }
 
     /// Get the status of the Alarm Panel
-    pub fn get_status(&self) -> Result<((Area, Mode), (Area, Mode))> {
-        self.get::<panel::Modes>("panelCondGet", true)?.ok()
+    pub fn get_status(&self) -> Result<Modes> {
+        self.get::<panel::Condition>("panelCondGet", true)?.ok()
     }
 
     /// Change the mode of the given area

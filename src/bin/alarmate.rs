@@ -90,7 +90,7 @@ fn main() -> Result {
             ip_address,
         } => {
             let client = Client::new(&username, &password, ip_address);
-            writeln!(io::stdout(), "{:?}", client.get_status()?)?;
+            writeln!(io::stdout(), "{:#?}", client.get_status()?)?;
         }
 
         Opt::Mode {

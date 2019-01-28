@@ -21,4 +21,4 @@ mod utils;
 pub use client::Client;
 pub use constants::{Area, DeviceKind, Mode, Status};
 pub use errors::{Error, Result};
-pub use resources::devices::Device;
+pub use resources::{devices::Device, panel::Modes};

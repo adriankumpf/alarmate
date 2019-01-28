@@ -1,22 +1,32 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::constants::{Area, Mode};
+use crate::constants::Mode;
 use crate::errors::Result;
 use crate::resources::ApiResponse;
 
-#[derive(Deserialize)]
+/// Represents the status of Area 1 and 2.
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Modes {
+    /// Mode of Area 2
+    pub area1: Mode,
+
+    /// Mode of Area 2
+    pub area2: Mode,
+}
+
+#[derive(Deserialize)]
+pub struct Condition {
     forms: Forms,
 }
 
-impl ApiResponse for Modes {
-    type Type = ((Area, Mode), (Area, Mode));
+impl ApiResponse for Condition {
+    type Type = Modes;
 
     fn ok(self) -> Result<Self::Type> {
-        Ok((
-            (Area::Area1, self.forms.pcondform1.mode),
-            (Area::Area2, self.forms.pcondform2.mode),
-        ))
+        Ok(Modes {
+            area1: self.forms.pcondform1.mode,
+            area2: self.forms.pcondform2.mode,
+        })
     }
 }
 
