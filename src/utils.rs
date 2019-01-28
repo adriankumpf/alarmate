@@ -54,7 +54,10 @@ macro_rules! enum_number {
             where
                 S: ::serde::Serializer,
             {
-                serializer.serialize_u64(*self as u64)
+                serializer.serialize_str(match *self {
+                    $( $name::$variant => stringify!($variant), )*
+                })
+
             }
         }
 

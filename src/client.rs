@@ -38,7 +38,7 @@ impl Client {
 
     /// Get the status of the Alarm Panel
     pub fn get_status(&self) -> Result<((Area, Mode), (Area, Mode))> {
-        self.get::<panel::Status>("panelCondGet", true)?.ok()
+        self.get::<panel::Modes>("panelCondGet", true)?.ok()
     }
 
     /// Change the mode of the given area

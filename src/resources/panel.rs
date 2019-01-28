@@ -5,11 +5,11 @@ use crate::errors::Result;
 use crate::resources::ApiResponse;
 
 #[derive(Deserialize)]
-pub struct Status {
+pub struct Modes {
     forms: Forms,
 }
 
-impl ApiResponse for Status {
+impl ApiResponse for Modes {
     type Type = ((Area, Mode), (Area, Mode));
 
     fn ok(self) -> Result<Self::Type> {
