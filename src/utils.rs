@@ -1,3 +1,4 @@
+/// Creates an enum that can be deserialized from a number
 #[macro_export]
 macro_rules! enum_number {
     (
