@@ -41,7 +41,7 @@ impl Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(std::error::Error::description(self))?;
         match *self {
             Error::Panel(ref msg) => write!(f, "{}", msg),
@@ -66,7 +66,7 @@ impl std::error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&std::error::Error> {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
         match *self {
             Error::Panel(_) => None,
             Error::Deserialize(ref err) => Some(err),
