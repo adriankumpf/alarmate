@@ -5,13 +5,15 @@ authors = ["Adrian Kumpf <adrian.kumpf@posteo.de>"]
 edition = "2018"
 
 [dependencies]
-reqwest = "0.9.17"
-serde = { version = "1.0.91", features = ["derive"] }
-serde_json = "1.0.39"
-structopt = { version = "0.2.15", optional = true }
+reqwest = "0.10.0-alpha.1"
+serde = { version = "1.0.102", features = ["derive"] }
+serde_json = "1.0.41"
+structopt = { version = "0.3.3", optional = true }
+tokio = { version = "0.2.0-alpha.6", optional = true }
+thiserror = "1.0.4"
 
 [features]
-build-binary = ["structopt"]
+build-binary = ["structopt", "tokio"]
 
 [[bin]]
 name = "alarmate"

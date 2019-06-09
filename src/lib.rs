@@ -14,8 +14,6 @@ mod client;
 mod constants;
 mod errors;
 mod resources;
-
-#[macro_use]
 mod utils;
 
 pub use client::Client;

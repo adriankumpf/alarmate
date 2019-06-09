@@ -1,6 +1,5 @@
-use std::fmt;
-
 use crate::enum_number;
+use std::fmt;
 
 enum_number!(
 /// Possible modes of an area

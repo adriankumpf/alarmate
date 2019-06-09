@@ -8,8 +8,6 @@ use crate::errors::{Error, Result};
 use crate::resources::{devices, panel, response, ApiResponse};
 use crate::Modes;
 
-const X_TOKEN: &str = "x-token";
-
 /// Holds the credentials and a session token
 #[derive(Clone)]
 pub struct Client {
@@ -38,99 +36,111 @@ impl Client {
     }
 
     /// Get the status of the Alarm Panel
-    pub fn get_status(&self) -> Result<Modes> {
-        self.get::<panel::Condition>("panelCondGet", true)?.ok()
+    pub async fn get_status(&self) -> Result<Modes> {
+        self.get::<panel::Condition>("panelCondGet").await?.ok()
     }
 
     /// Change the mode of the given area
-    pub fn change_mode(&mut self, area: Area, mode: Mode) -> Result {
+    pub async fn change_mode(&mut self, area: Area, mode: Mode) -> Result {
         let payload = &[("mode", mode as u8), ("area", area as u8)];
 
-        self.post::<_, response::Response>("panelCondPost", payload, true)?
+        self.post::<_, response::Response>("panelCondPost", payload)
+            .await?
             .ok()?;
 
         Ok(())
     }
 
     /// List all devices managed by the alarm panel
-    pub fn list_devices(&self) -> Result<Vec<devices::Device>> {
-        self.get::<devices::List>("deviceListGet", true)?.ok()
+    pub async fn list_devices(&self) -> Result<Vec<devices::Device>> {
+        self.get::<devices::List>("deviceListGet").await?.ok()
     }
 
     // Private
 
     fn url(&self, path: &str) -> Result<reqwest::Url> {
-        Ok(format!("https://{}/action/{}", self.ip_address, path).parse()?)
+        Ok(format!("https://{}/action/{}", self.ip_address, path)
+            .parse()
+            .expect("URL must always be valid"))
     }
 
-    fn get<T>(&self, action: &str, retry: bool) -> Result<T>
+    async fn get<'s, 'a: 's, T>(&'s self, action: &'a str) -> Result<T>
     where
         T: ApiResponse + serde::de::DeserializeOwned,
     {
-        let response = self
-            .client
-            .get(self.url(action)?)
-            .basic_auth(&self.username, Some(&self.password))
-            .send()?;
+        for i in 0..2 {
+            let res = self
+                .client
+                .get(self.url(&action)?)
+                .basic_auth(&self.username, Some(&self.password))
+                .send()
+                .await?;
 
-        match from_response_into(response) {
-            Err(ref error) if error.is_session_timeout() && retry => self.get(action, false),
-            other => other,
+            match from_response_into(res).await {
+                Err(ref error) if error.is_session_timeout() && i == 0 => continue,
+                other => return other,
+            }
         }
+
+        unreachable!()
     }
 
-    fn post<T, D>(&mut self, action: &str, form: &T, retry: bool) -> Result<D>
+    async fn post<'s, 'a: 's, T, D>(&'s mut self, action: &'a str, form: &'a T) -> Result<D>
     where
-        T: Serialize + ?Sized,
+        T: Serialize + Sized,
         D: ApiResponse + serde::de::DeserializeOwned,
     {
-        let url = self.url(action)?;
+        for i in 0..2 {
+            let url = self.url(action)?;
 
-        let token = match &self.token {
-            Some(token) => token.clone(),
-            None => {
-                let token = self.get_token()?;
-                self.token = Some(token.clone());
-                token
+            let token = match &self.token {
+                Some(token) => token.clone(),
+                None => {
+                    let token = self.get_token().await?;
+                    self.token = Some(token.clone());
+                    token
+                }
+            };
+
+            let res = self
+                .client
+                .post(url)
+                .form(&form)
+                .basic_auth(&self.username, Some(&self.password))
+                .header("x-token", header::HeaderValue::from_str(&token)?)
+                .send()
+                .await?;
+
+            match from_response_into(res).await {
+                Err(ref error) if error.is_session_timeout() && i == 0 => {
+                    self.token = None;
+                    continue;
+                }
+                other => return other,
             }
-        };
-
-        let response = self
-            .client
-            .post(url)
-            .form(form)
-            .basic_auth(&self.username, Some(&self.password))
-            .header(X_TOKEN, header::HeaderValue::from_str(&token)?)
-            .send()?;
-
-        match from_response_into(response) {
-            Err(ref error) if error.is_session_timeout() && retry => {
-                self.token = None;
-                self.post(action, form, false)
-            }
-            other => other,
         }
+
+        unreachable!()
     }
 
-    fn get_token(&self) -> Result<String> {
-        Ok(self.get::<response::Response>("tokenGet", true)?.ok()?)
+    async fn get_token(&self) -> Result<String> {
+        Ok(self.get::<response::Response>("tokenGet").await?.ok()?)
     }
 }
 
-fn from_response_into<D>(mut response: reqwest::Response) -> Result<D>
+async fn from_response_into<D>(res: reqwest::Response) -> Result<D>
 where
     D: ApiResponse + serde::de::DeserializeOwned,
 {
-    if !response.status().is_success() {
-        return Err(Error::Panel(format!(
-            "{}: {}",
-            response.status(),
-            response.text()?
-        )));
+    let status = res.status();
+    let body = res.text().await?;
+
+    if !status.is_success() {
+        return Err(Error::Panel(format!("{}: {}", status, body)));
     }
 
-    let response = response.text()?.replace("\u{009}", "");
-    let model = serde_json::from_str(&response)?;
+    let res = body.replace("\u{009}", "");
+    let model = serde_json::from_str(&res)?;
 
     Ok(model)
 }

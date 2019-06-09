@@ -56,24 +56,17 @@ enum Opt {
         username: String,
 
         /// The area
-        #[structopt(
-            raw(possible_values = "&Area::variants()", case_insensitive = "true"),
-            default_value = "Area1",
-            short,
-            long
-        )]
+        #[structopt(possible_values = &Area::variants(), case_insensitive = true, default_value = "Area1", short, long)]
         area: Area,
 
         /// The mode
-        #[structopt(
-            raw(possible_values = "&Mode::variants()", case_insensitive = "true"),
-            name = "MODE"
-        )]
+        #[structopt(possible_values = &Mode::variants(), case_insensitive = true, name = "MODE")]
         mode: Mode,
     },
 }
 
-fn main() -> Result {
+#[tokio::main]
+async fn main() -> Result {
     match Opt::from_args() {
         Opt::Devices {
             username,
@@ -81,7 +74,8 @@ fn main() -> Result {
             ip_address,
         } => {
             let client = Client::new(&username, &password, ip_address);
-            writeln!(io::stdout(), "{:#?}", client.list_devices()?)?;
+            let devices = client.list_devices().await?;
+            writeln!(io::stdout(), "{:#?}", devices)?;
         }
 
         Opt::Status {
@@ -90,7 +84,8 @@ fn main() -> Result {
             ip_address,
         } => {
             let client = Client::new(&username, &password, ip_address);
-            writeln!(io::stdout(), "{:#?}", client.get_status()?)?;
+            let status = client.get_status().await?;
+            writeln!(io::stdout(), "{:#?}", status)?;
         }
 
         Opt::Mode {
@@ -101,7 +96,8 @@ fn main() -> Result {
             area,
         } => {
             let mut client = Client::new(&username, &password, ip_address);
-            writeln!(io::stdout(), "{:#?}", client.change_mode(area, mode)?)?;
+            let mode = client.change_mode(area, mode).await?;
+            writeln!(io::stdout(), "{:#?}", mode)?;
         }
     }
 
