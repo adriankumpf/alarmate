@@ -5,12 +5,12 @@ authors = ["Adrian Kumpf <adrian.kumpf@posteo.de>"]
 edition = "2018"
 
 [dependencies]
-reqwest = "0.10.0"
-serde = { version = "1.0.104", features = ["derive"] }
-serde_json = "1.0.44"
-structopt = { version = "0.3.7", default-features = false, features = ["suggestions", "color"], optional = true }
-tokio = { version = "0.2.6", default-features = false, features = ["rt-threaded", "macros"], optional = true }
-thiserror = "1.0.9"
+reqwest = "0.10.9"
+serde = { version = "1.0.117", features = ["derive"] }
+serde_json = "1.0.59"
+structopt = { version = "0.3.20", default-features = false, features = ["suggestions", "color"], optional = true }
+tokio = { version = "0.3.4", default-features = false, features = ["macros", "rt-multi-thread"], optional = true }
+thiserror = "1.0.22"
 
 [features]
 build-binary = ["structopt", "tokio"]
