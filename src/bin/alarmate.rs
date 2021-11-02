@@ -1,73 +1,73 @@
-use structopt::StructOpt;
+use clap::Parser;
 
 use std::io::{self, Write};
 use std::net::Ipv4Addr;
 
 use alarmate::{Area, Client, Mode, Result};
 
-#[derive(StructOpt, Debug)]
-#[structopt()]
+#[derive(Parser, Debug)]
+#[clap()]
 enum Opt {
     /// List devices
-    #[structopt(name = "devices")]
+    #[clap(name = "devices")]
     Devices {
         /// The IP address
-        #[structopt(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
+        #[clap(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
         ip_address: Ipv4Addr,
 
         /// The password
-        #[structopt(name = "PASSWORD", env = "PASSWORD", short)]
+        #[clap(name = "PASSWORD", env = "PASSWORD", short)]
         password: String,
 
         /// The user name
-        #[structopt(name = "USERNAME", env = "USERNAME", short)]
+        #[clap(name = "USERNAME", env = "USERNAME", short)]
         username: String,
     },
 
     /// Get current status
-    #[structopt(name = "status")]
+    #[clap(name = "status")]
     Status {
         /// The IP address
-        #[structopt(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
+        #[clap(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
         ip_address: Ipv4Addr,
 
         /// The password
-        #[structopt(name = "PASSWORD", env = "PASSWORD", short)]
+        #[clap(name = "PASSWORD", env = "PASSWORD", short)]
         password: String,
 
         /// The user name
-        #[structopt(name = "USERNAME", env = "USERNAME", short)]
+        #[clap(name = "USERNAME", env = "USERNAME", short)]
         username: String,
     },
 
     /// Change mode
-    #[structopt(name = "mode")]
+    #[clap(name = "mode")]
     Mode {
         /// The IP address
-        #[structopt(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
+        #[clap(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
         ip_address: Ipv4Addr,
 
         /// The password
-        #[structopt(name = "PASSWORD", env = "PASSWORD", short)]
+        #[clap(name = "PASSWORD", env = "PASSWORD", short)]
         password: String,
 
         /// The user name
-        #[structopt(name = "USERNAME", env = "USERNAME", short)]
+        #[clap(name = "USERNAME", env = "USERNAME", short)]
         username: String,
 
         /// The area
-        #[structopt(possible_values = &Area::variants(), case_insensitive = true, default_value = "Area1", short, long)]
+        #[clap(possible_values = Area::variants(), case_insensitive = true, default_value = "Area1", short, long)]
         area: Area,
 
         /// The mode
-        #[structopt(possible_values = &Mode::variants(), case_insensitive = true, name = "MODE")]
+        #[clap(possible_values = Mode::variants(), case_insensitive = true, name = "MODE")]
         mode: Mode,
     },
 }
 
 #[tokio::main]
 async fn main() -> Result {
-    match Opt::from_args() {
+    match Opt::parse() {
         Opt::Devices {
             username,
             password,

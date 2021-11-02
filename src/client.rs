@@ -71,7 +71,7 @@ impl Client {
         for i in 0..2 {
             let res = self
                 .client
-                .get(self.url(&action)?)
+                .get(self.url(action)?)
                 .basic_auth(&self.username, Some(&self.password))
                 .send()
                 .await?;
