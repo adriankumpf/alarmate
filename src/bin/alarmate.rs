@@ -56,11 +56,11 @@ enum Opt {
         username: String,
 
         /// The area
-        #[clap(possible_values = Area::variants(), case_insensitive = true, default_value = "Area1", short, long)]
+        #[clap(possible_values = Area::variants(), ignore_case = true, default_value = "Area1", short, long)]
         area: Area,
 
         /// The mode
-        #[clap(possible_values = Mode::variants(), case_insensitive = true, name = "MODE")]
+        #[clap(possible_values = Mode::variants(), ignore_case = true, name = "MODE")]
         mode: Mode,
     },
 }
