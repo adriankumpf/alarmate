@@ -9,6 +9,7 @@ macro_rules! enum_number {
     ) => {
         $(#[$enum_attr])*
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+        #[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
         pub enum $name {
             $(#[$attr] $variant = $value,)*
         }
@@ -38,15 +39,6 @@ macro_rules! enum_number {
                 match *self {
                     $($name::$variant => write!(f, stringify!($variant)),)+
                 }
-            }
-        }
-
-        impl $name {
-            #[allow(dead_code, missing_docs)]
-            pub fn variants() -> Vec<&'static str> {
-                vec![
-                    $(stringify!($variant),)+
-                ]
             }
         }
 

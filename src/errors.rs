@@ -30,13 +30,9 @@ pub enum Error {
 impl Error {
     /// Indicates whether an error represents a session timeout issued by the lupusec panel.
     pub fn is_session_timeout(&self) -> bool {
-        match *self {
-            Error::Panel(ref err)
-                if err == "401 Unauthorized: Zugriff verweigert: Sitzung abgelaufen!" =>
-            {
-                true
-            }
-            _ => false,
-        }
+        matches!(
+            *self,
+            Error::Panel(ref err) if err == "401 Unauthorized: Zugriff verweigert: Sitzung abgelaufen!"
+        )
     }
 }

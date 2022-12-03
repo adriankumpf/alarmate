@@ -41,8 +41,8 @@ impl Client {
     }
 
     /// Change the mode of the given area
-    pub async fn change_mode(&mut self, area: Area, mode: Mode) -> Result {
-        let payload = &[("mode", mode as u8), ("area", area as u8)];
+    pub async fn change_mode(&mut self, area: Area, mode: &Mode) -> Result {
+        let payload = &[("mode", *mode as u8), ("area", area as u8)];
 
         self.post::<_, response::Response>("panelCondPost", payload)
             .await?
@@ -124,7 +124,7 @@ impl Client {
     }
 
     async fn get_token(&self) -> Result<String> {
-        Ok(self.get::<response::Response>("tokenGet").await?.ok()?)
+        self.get::<response::Response>("tokenGet").await?.ok()
     }
 }
 
@@ -139,7 +139,7 @@ where
         return Err(Error::Panel(format!("{}: {}", status, body)));
     }
 
-    let res = body.replace("\u{009}", "");
+    let res = body.replace('\u{009}', "");
     let model = serde_json::from_str(&res)?;
 
     Ok(model)

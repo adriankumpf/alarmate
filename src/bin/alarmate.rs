@@ -6,61 +6,60 @@ use std::net::Ipv4Addr;
 use alarmate::{Area, Client, Mode, Result};
 
 #[derive(Parser, Debug)]
-#[clap()]
 enum Opt {
     /// List devices
-    #[clap(name = "devices")]
+    #[command(name = "devices")]
     Devices {
         /// The IP address
-        #[clap(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
+        #[arg(value_name = "IP_ADDRESS", env = "IP_ADDRESS", short = 'I')]
         ip_address: Ipv4Addr,
 
         /// The password
-        #[clap(name = "PASSWORD", env = "PASSWORD", short)]
+        #[arg(value_name = "PASSWORD", env = "PASSWORD", short = 'P')]
         password: String,
 
         /// The user name
-        #[clap(name = "USERNAME", env = "USERNAME", short)]
+        #[arg(value_name = "USERNAME", env = "USERNAME", short = 'U')]
         username: String,
     },
 
     /// Get current status
-    #[clap(name = "status")]
+    #[command(name = "status")]
     Status {
         /// The IP address
-        #[clap(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
+        #[arg(value_name = "IP_ADDRESS", env = "IP_ADDRESS", short = 'I')]
         ip_address: Ipv4Addr,
 
         /// The password
-        #[clap(name = "PASSWORD", env = "PASSWORD", short)]
+        #[arg(value_name = "PASSWORD", env = "PASSWORD", short = 'P')]
         password: String,
 
         /// The user name
-        #[clap(name = "USERNAME", env = "USERNAME", short)]
+        #[arg(value_name = "USERNAME", env = "USERNAME", short = 'U')]
         username: String,
     },
 
     /// Change mode
-    #[clap(name = "mode")]
+    #[command(name = "mode")]
     Mode {
         /// The IP address
-        #[clap(name = "IP_ADDRESS", env = "IP_ADDRESS", short)]
+        #[arg(value_name = "IP_ADDRESS", env = "IP_ADDRESS", short = 'I')]
         ip_address: Ipv4Addr,
 
         /// The password
-        #[clap(name = "PASSWORD", env = "PASSWORD", short)]
+        #[arg(value_name = "PASSWORD", env = "PASSWORD", short = 'P')]
         password: String,
 
         /// The user name
-        #[clap(name = "USERNAME", env = "USERNAME", short)]
+        #[arg(value_name = "USERNAME", env = "USERNAME", short = 'U')]
         username: String,
 
         /// The area
-        #[clap(possible_values = Area::variants(), ignore_case = true, default_value = "Area1", short, long)]
+        #[arg(value_enum, ignore_case = true, default_value = "Area1", short, long)]
         area: Area,
 
         /// The mode
-        #[clap(possible_values = Mode::variants(), ignore_case = true, name = "MODE")]
+        #[arg(value_enum, ignore_case = true, value_name = "MODE")]
         mode: Mode,
     },
 }
@@ -96,7 +95,7 @@ async fn main() -> Result {
             area,
         } => {
             let mut client = Client::new(&username, &password, ip_address);
-            let mode = client.change_mode(area, mode).await?;
+            client.change_mode(area, &mode).await?;
             writeln!(io::stdout(), "{:#?}", mode)?;
         }
     }

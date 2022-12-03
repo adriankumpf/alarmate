@@ -24,18 +24,16 @@ alarmate = { git = "https://github.com/adriankumpf/alarmate", tag = "v0.2.0" }
 ```bash
 $ alarmate --help
 
-  USAGE:
-      alarmate <SUBCOMMAND>
+Usage: alarmate <COMMAND>
 
-  FLAGS:
-      -h, --help       Prints help information
-      -V, --version    Prints version information
+Commands:
+  devices  List devices
+  status   Get current status
+  mode     Change mode
+  help     Print this message or the help of the given subcommand(s)
 
-  SUBCOMMANDS:
-      devices    List devices
-      help       Prints this message or the help of the given subcommand(s)
-      mode       Change mode
-      status     Get current status
+Options:
+  -h, --help  Print help information
 ```
 
 ### Library
@@ -44,7 +42,7 @@ $ alarmate --help
 use alarmate::{Area, Client, Mode};
 
 let mut client = Client::new("admin", "changeme", "10.0.0.10".parse()?);
-client.change_mode(Area::Area1, Mode::Disarmed)?;
+client.change_mode(Area::Area1, &Mode::Disarmed)?;
 ```
 
 ## Documentation
