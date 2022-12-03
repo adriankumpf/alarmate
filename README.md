@@ -14,7 +14,7 @@ cargo build --release --features="build-binary"
 
 ```toml
 [dependencies]
-alarmate = { git = "https://github.com/adriankumpf/alarmate", tag = "v0.2.0" }
+alarmate = { git = "https://github.com/adriankumpf/alarmate", tag = "v0.3.0" }
 ```
 
 ## Usage
