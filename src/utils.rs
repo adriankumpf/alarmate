@@ -22,7 +22,7 @@ macro_rules! enum_number {
                     $(stringify!($variant) |
                     _ if s.eq_ignore_ascii_case(stringify!($variant)) => Ok($name::$variant),)+
                     _                => Err({
-                                            let v = vec![
+                                            let v = [
                                                 $(stringify!($variant),)+
                                             ];
                                             format!("valid values:{}",
