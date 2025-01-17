@@ -11,7 +11,7 @@ pub enum Error {
     Panel(String),
 
     /// A deserilization error
-    #[error("error deserializing panel response")]
+    #[error("error deserializing panel response: {0:?}")]
     Deserialize(#[from] serde_json::error::Error),
 
     /// An error converting a header from a string
