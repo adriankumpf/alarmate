@@ -10,6 +10,19 @@ pub enum Error {
     #[error("error reported by the alarm panel: {0}")]
     Panel(String),
 
+    /// A session timeout error
+    #[error("the session expired")]
+    SessionTimeout,
+
+    /// An unexpected response error
+    #[error("received an unexpected response with status {status}: {body}")]
+    UnexpectedResponse {
+        /// The HTTP status code of the response
+        status: reqwest::StatusCode,
+        /// The body of the HTTP response
+        body: String,
+    },
+
     /// A deserilization error
     #[error("error deserializing panel response: {0:?}")]
     Deserialize(String),
@@ -30,9 +43,6 @@ pub enum Error {
 impl Error {
     /// Indicates whether an error represents a session timeout issued by the lupusec panel.
     pub fn is_session_timeout(&self) -> bool {
-        matches!(
-            *self,
-            Error::Panel(ref err) if err == "401 Unauthorized: Zugriff verweigert: Sitzung abgelaufen!"
-        )
+        matches!(*self, Error::SessionTimeout)
     }
 }

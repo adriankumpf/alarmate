@@ -136,15 +136,18 @@ where
     let body = res.text().await?;
 
     if !status.is_success() {
-        return Err(Error::Panel(format!("{}: {}", status, body)));
+        let error = if let reqwest::StatusCode::UNAUTHORIZED = status {
+            Error::SessionTimeout
+        } else {
+            Error::UnexpectedResponse { status, body }
+        };
+
+        return Err(error);
     }
 
-    let res = body.replace('\u{009}', "");
-
-    match serde_json::from_str(&res) {
-        Err(json_error) => Err(Error::Deserialize(format!(
-            "failed to deserialize response ({json_error}): {body}"
-        ))),
+    match serde_json::from_str(&body.replace('\u{009}', "")) {
+        Err(_) if body.contains("/action/login") => Err(Error::SessionTimeout),
+        Err(_) => Err(Error::UnexpectedResponse { status, body }),
         Ok(model) => Ok(model),
     }
 }
