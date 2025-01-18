@@ -140,7 +140,11 @@ where
     }
 
     let res = body.replace('\u{009}', "");
-    let model = serde_json::from_str(&res)?;
 
-    Ok(model)
+    match serde_json::from_str(&res) {
+        Err(json_error) => Err(Error::Deserialize(format!(
+            "failed to deserialize response ({json_error}): {body}"
+        ))),
+        Ok(model) => Ok(model),
+    }
 }
