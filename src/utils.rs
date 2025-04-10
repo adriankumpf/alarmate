@@ -4,7 +4,7 @@ macro_rules! enum_number {
     (
         $(#[$enum_attr:meta])*
         $name:ident {
-            $(#[$attr:meta] $variant:ident = $value:expr, )*
+            $(#[$attr:meta] $variant:ident = $value:expr_2021, )*
         }
     ) => {
         $(#[$enum_attr])*

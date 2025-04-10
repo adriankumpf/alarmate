@@ -3,10 +3,10 @@ use serde::Serialize;
 
 use std::net::Ipv4Addr;
 
+use crate::Modes;
 use crate::constants::{Area, Mode};
 use crate::errors::{Error, Result};
-use crate::resources::{devices, panel, response, ApiResponse};
-use crate::Modes;
+use crate::resources::{ApiResponse, devices, panel, response};
 
 /// Holds the credentials and a session token
 #[derive(Clone)]
