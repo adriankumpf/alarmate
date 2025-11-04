@@ -74,7 +74,7 @@ async fn main() -> Result {
         } => {
             let client = Client::new(&username, &password, ip_address);
             let devices = client.list_devices().await?;
-            writeln!(io::stdout(), "{:#?}", devices)?;
+            writeln!(io::stdout(), "{devices:#?}")?;
         }
 
         Opt::Status {
@@ -84,7 +84,7 @@ async fn main() -> Result {
         } => {
             let client = Client::new(&username, &password, ip_address);
             let status = client.get_status().await?;
-            writeln!(io::stdout(), "{:#?}", status)?;
+            writeln!(io::stdout(), "{status:#?}")?;
         }
 
         Opt::Mode {
@@ -96,7 +96,7 @@ async fn main() -> Result {
         } => {
             let mut client = Client::new(&username, &password, ip_address);
             client.change_mode(area, &mode).await?;
-            writeln!(io::stdout(), "{:#?}", mode)?;
+            writeln!(io::stdout(), "{mode:#?}")?;
         }
     }
 
