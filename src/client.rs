@@ -196,7 +196,7 @@ where
     // The panel redirects to /action/login when the session has expired,
     // returning an HTML page instead of JSON. Detect this before reporting
     // the serde error so callers can retry with a fresh session.
-    match serde_json::from_str(&body.replace('\u{009}', "")) {
+    match serde_json::from_str(&body.replace('\t', "")) {
         Err(_) if body.contains("/action/login") => Err(Error::SessionTimeout),
         Err(e) => Err(e.into()),
         Ok(model) => Ok(model),
