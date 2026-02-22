@@ -145,6 +145,19 @@ impl Client {
     async fn get_token(&mut self) -> Result<String> {
         self.get::<response::Response>("tokenGet").await
     }
+
+    #[cfg(test)]
+    fn with_base_url(username: &str, password: &str, base_url: reqwest::Url) -> Result<Client> {
+        let client = reqwest::Client::builder().build()?;
+
+        Ok(Client {
+            client,
+            username: username.into(),
+            password: password.into(),
+            base_url,
+            token: None,
+        })
+    }
 }
 
 async fn parse_response<D>(res: reqwest::Response) -> Result<D>
@@ -193,6 +206,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
     fn url_construction() {
@@ -241,6 +256,80 @@ mod tests {
     fn parse_body_strips_tabs() {
         let body = "{\t\"result\":\t1,\t\"message\":\t\"ok\"\t}";
         let result: Result<response::Response> = parse_body(reqwest::StatusCode::OK, body);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn get_retries_on_session_timeout() {
+        let server = MockServer::start().await;
+
+        // First GET returns a login redirect (session timeout)
+        Mock::given(method("GET"))
+            .and(path("/action/panelCondGet"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("<html>/action/login</html>"))
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        // Second GET returns valid JSON
+        Mock::given(method("GET"))
+            .and(path("/action/panelCondGet"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "forms": {
+                    "pcondform1": { "mode": 0 },
+                    "pcondform2": { "mode": 1 }
+                }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let base_url: reqwest::Url = format!("{}/action/", server.uri()).parse().unwrap();
+        let mut client = Client::with_base_url("user", "pass", base_url).unwrap();
+        let modes = client.get_status().await.unwrap();
+        assert_eq!(modes.area1, Mode::Disarmed);
+        assert_eq!(modes.area2, Mode::Armed);
+    }
+
+    #[tokio::test]
+    async fn post_retries_on_session_timeout() {
+        let server = MockServer::start().await;
+
+        // Token endpoint always succeeds (expect 2 calls: initial + retry)
+        Mock::given(method("GET"))
+            .and(path("/action/tokenGet"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"result": 1, "message": "tok123"})),
+            )
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        // First POST returns a login redirect (session timeout)
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("<html>/action/login</html>"))
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        // Second POST succeeds
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"result": 1, "message": "ok"})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let base_url: reqwest::Url = format!("{}/action/", server.uri()).parse().unwrap();
+        let mut client = Client::with_base_url("user", "pass", base_url).unwrap();
+        let result = client.change_mode(Area::Area1, Mode::Disarmed).await;
         assert!(result.is_ok());
     }
 }

@@ -12,6 +12,10 @@ clap = { version = "4.5.60", features = ["derive", "env"], optional = true }
 tokio = { version = "1.49.0", default-features = false, features = ["macros", "rt-multi-thread"], optional = true }
 thiserror = "2.0.18"
 
+[dev-dependencies]
+wiremock = "0.6"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
 [features]
 build-binary = ["clap", "tokio"]
 
