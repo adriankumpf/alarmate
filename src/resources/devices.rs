@@ -23,7 +23,7 @@ pub struct Device {
 }
 
 #[derive(Deserialize)]
-pub struct List {
+pub(crate) struct List {
     #[serde(rename = "senrows")]
     list: Vec<Device>,
 }
@@ -31,7 +31,7 @@ pub struct List {
 impl ApiResponse for List {
     type Type = Vec<Device>;
 
-    fn ok(self) -> Result<Self::Type> {
+    fn into_result(self) -> Result<Self::Type> {
         Ok(self.list)
     }
 }

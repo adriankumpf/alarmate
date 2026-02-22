@@ -37,7 +37,7 @@ impl Client {
 
     /// Get the status of the Alarm Panel
     pub async fn get_status(&self) -> Result<Modes> {
-        self.get::<panel::Condition>("panelCondGet").await?.ok()
+        self.get::<panel::Condition>("panelCondGet").await?.into_result()
     }
 
     /// Change the mode of the given area
@@ -46,14 +46,14 @@ impl Client {
 
         self.post::<_, response::Response>("panelCondPost", payload)
             .await?
-            .ok()?;
+            .into_result()?;
 
         Ok(())
     }
 
     /// List all devices managed by the alarm panel
     pub async fn list_devices(&self) -> Result<Vec<devices::Device>> {
-        self.get::<devices::List>("deviceListGet").await?.ok()
+        self.get::<devices::List>("deviceListGet").await?.into_result()
     }
 
     // Private
@@ -124,7 +124,7 @@ impl Client {
     }
 
     async fn get_token(&self) -> Result<String> {
-        self.get::<response::Response>("tokenGet").await?.ok()
+        self.get::<response::Response>("tokenGet").await?.into_result()
     }
 }
 

@@ -15,14 +15,14 @@ pub struct Modes {
 }
 
 #[derive(Deserialize)]
-pub struct Condition {
+pub(crate) struct Condition {
     forms: Forms,
 }
 
 impl ApiResponse for Condition {
     type Type = Modes;
 
-    fn ok(self) -> Result<Self::Type> {
+    fn into_result(self) -> Result<Self::Type> {
         Ok(Modes {
             area1: self.forms.pcondform1.mode,
             area2: self.forms.pcondform2.mode,

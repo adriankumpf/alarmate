@@ -13,8 +13,8 @@ pub struct Response {
 impl ApiResponse for Response {
     type Type = String;
 
-    fn ok(self) -> Result<Self::Type> {
-        if let Status::Error = self.result {
+    fn into_result(self) -> Result<Self::Type> {
+        if self.result == Status::Error {
             return Err(Error::Panel(self.message));
         }
 
