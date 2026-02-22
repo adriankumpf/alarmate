@@ -41,6 +41,7 @@ pub enum Error {
 }
 
 impl Error {
+    #[must_use]
     pub(crate) fn is_session_timeout(&self) -> bool {
         matches!(*self, Error::SessionTimeout)
     }
