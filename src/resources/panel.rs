@@ -40,3 +40,22 @@ struct Forms {
 struct PCondForm {
     mode: Mode,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_condition() {
+        let json = serde_json::json!({
+            "forms": {
+                "pcondform1": { "mode": 0 },
+                "pcondform2": { "mode": 1 }
+            }
+        });
+        let condition: Condition = serde_json::from_value(json).unwrap();
+        let modes = condition.into_result().unwrap();
+        assert_eq!(modes.area1, Mode::Disarmed);
+        assert_eq!(modes.area2, Mode::Armed);
+    }
+}

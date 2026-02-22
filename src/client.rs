@@ -189,3 +189,58 @@ where
         Ok(model) => Ok(model),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn url_construction() {
+        let client = Client::new("user", "pass", "192.168.1.1".parse().unwrap()).unwrap();
+        let url = client.url("panelCondGet");
+        assert_eq!(url.as_str(), "https://192.168.1.1/action/panelCondGet");
+    }
+
+    #[test]
+    fn parse_body_valid_json() {
+        let body = r#"{"result": 1, "message": "token123"}"#;
+        let result: Result<response::Response> = parse_body(reqwest::StatusCode::OK, body);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn parse_body_unauthorized() {
+        let result: Result<response::Response> = parse_body(reqwest::StatusCode::UNAUTHORIZED, "");
+        assert!(matches!(result.unwrap_err(), Error::Unauthorized));
+    }
+
+    #[test]
+    fn parse_body_unexpected_response() {
+        let result: Result<response::Response> =
+            parse_body(reqwest::StatusCode::INTERNAL_SERVER_ERROR, "oops");
+        assert!(matches!(
+            result.unwrap_err(),
+            Error::UnexpectedResponse { .. }
+        ));
+    }
+
+    #[test]
+    fn parse_body_session_timeout() {
+        let body = r#"<html>/action/login</html>"#;
+        let result: Result<response::Response> = parse_body(reqwest::StatusCode::OK, body);
+        assert!(result.unwrap_err().is_session_timeout());
+    }
+
+    #[test]
+    fn parse_body_invalid_json() {
+        let result: Result<response::Response> = parse_body(reqwest::StatusCode::OK, "not json");
+        assert!(matches!(result.unwrap_err(), Error::Deserialize(_)));
+    }
+
+    #[test]
+    fn parse_body_strips_tabs() {
+        let body = "{\t\"result\":\t1,\t\"message\":\t\"ok\"\t}";
+        let result: Result<response::Response> = parse_body(reqwest::StatusCode::OK, body);
+        assert!(result.is_ok());
+    }
+}

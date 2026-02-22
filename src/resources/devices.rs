@@ -43,3 +43,52 @@ impl ApiResponse for List {
         Ok(self.list)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_device_json() -> serde_json::Value {
+        serde_json::json!({
+            "sid": "RF:001",
+            "type": 4,
+            "name": "Front Door",
+            "area": 1,
+            "status_ex": 0,
+            "cond_ok": 1,
+            "battery_ok": 1,
+            "tamper_ok": 1
+        })
+    }
+
+    #[test]
+    fn deserialize_known_device() {
+        let device: Device = serde_json::from_value(sample_device_json()).unwrap();
+        assert_eq!(device.sid, "RF:001");
+        assert_eq!(device.kind, DeviceKind::DoorContact);
+        assert_eq!(device.state, State::Closed);
+        assert_eq!(device.condition, Status::Ok);
+    }
+
+    #[test]
+    fn unknown_device_type_fails() {
+        let json = serde_json::json!({
+            "sid": "RF:002",
+            "type": 999,
+            "name": "Unknown",
+            "area": 1,
+            "status_ex": 0,
+            "cond_ok": 1,
+            "battery_ok": 1,
+            "tamper_ok": 1
+        });
+        assert!(serde_json::from_value::<Device>(json).is_err());
+    }
+
+    #[test]
+    fn tolerant_list_empty() {
+        let json = serde_json::json!({ "senrows": [] });
+        let list: List = serde_json::from_value(json).unwrap();
+        assert!(list.into_result().unwrap().is_empty());
+    }
+}
