@@ -133,7 +133,7 @@ impl Client {
 
     /// Fetch the cached token or request a new one from the panel.
     async fn get_or_fetch_token(&mut self) -> Result<String> {
-        if let Some(ref token) = self.token {
+        if let Some(token) = &self.token {
             return Ok(token.clone());
         }
 
