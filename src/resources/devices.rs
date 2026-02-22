@@ -4,7 +4,7 @@ use crate::constants::{Area, DeviceKind, State, Status};
 use crate::errors::Result;
 use crate::resources::ApiResponse;
 
-/// Holds information about a Lupusic Alarm / Smarthome device
+/// Holds information about a Lupusec Alarm / Smarthome device
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Device {
     /// The sensor ID
