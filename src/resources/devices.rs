@@ -7,19 +7,27 @@ use crate::resources::ApiResponse;
 /// Holds information about a Lupusic Alarm / Smarthome device
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Device {
-    sid: String,
+    /// The sensor ID
+    pub sid: String,
+    /// The device kind
     #[serde(rename = "type")]
-    kind: DeviceKind,
-    name: String,
-    area: Area,
+    pub kind: DeviceKind,
+    /// The device name
+    pub name: String,
+    /// The area the device belongs to
+    pub area: Area,
+    /// The device state
     #[serde(rename = "status_ex")]
-    state: State,
+    pub state: State,
+    /// The device condition
     #[serde(rename = "cond_ok")]
-    condition: Status,
+    pub condition: Status,
+    /// The battery status
     #[serde(rename = "battery_ok")]
-    battery: Status,
+    pub battery: Status,
+    /// The tamper status
     #[serde(rename = "tamper_ok")]
-    tamper: Status,
+    pub tamper: Status,
 }
 
 #[derive(Deserialize)]
