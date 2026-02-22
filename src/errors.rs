@@ -10,6 +10,10 @@ pub enum Error {
     #[error("error reported by the alarm panel: {0}")]
     Panel(String),
 
+    /// An authentication error (invalid credentials)
+    #[error("unauthorized: invalid credentials")]
+    Unauthorized,
+
     /// A session timeout error
     #[error("the session expired")]
     SessionTimeout,
@@ -23,9 +27,9 @@ pub enum Error {
         body: String,
     },
 
-    /// A deserilization error
-    #[error("error deserializing panel response: {0:?}")]
-    Deserialize(String),
+    /// A deserialization error
+    #[error("error deserializing panel response: {0}")]
+    Deserialize(#[from] serde_json::Error),
 
     /// An error converting a header from a string
     #[error("error converting a header from a string: {0}")]
@@ -41,8 +45,7 @@ pub enum Error {
 }
 
 impl Error {
-    /// Indicates whether an error represents a session timeout issued by the lupusec panel.
-    pub fn is_session_timeout(&self) -> bool {
+    pub(crate) fn is_session_timeout(&self) -> bool {
         matches!(*self, Error::SessionTimeout)
     }
 }
