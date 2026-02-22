@@ -6,7 +6,7 @@
 //!
 //! ```rust
 //!   let ip_address = "192.168.178.10".parse().unwrap();
-//!   let client = alarmate::Client::new("admin", "changeme", ip_address);
+//!   let client = alarmate::Client::new("admin", "changeme", ip_address).unwrap();
 //! ```
 
 #![deny(missing_docs)]
@@ -18,6 +18,6 @@ mod resources;
 mod utils;
 
 pub use client::Client;
-pub use constants::{Area, DeviceKind, Mode, Status};
+pub use constants::{Area, DeviceKind, Mode};
 pub use errors::{Error, Result};
 pub use resources::{devices::Device, panel::Modes};

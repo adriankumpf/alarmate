@@ -55,7 +55,7 @@ enum Opt {
         username: String,
 
         /// The area
-        #[arg(value_enum, ignore_case = true, default_value = "Area1", short, long)]
+        #[arg(value_enum, ignore_case = true, default_value_t = Area::Area1, short, long)]
         area: Area,
 
         /// The mode
@@ -72,7 +72,7 @@ async fn main() -> Result {
             password,
             ip_address,
         } => {
-            let client = Client::new(&username, &password, ip_address);
+            let mut client = Client::new(&username, &password, ip_address)?;
             let devices = client.list_devices().await?;
             writeln!(io::stdout(), "{devices:#?}")?;
         }
@@ -82,7 +82,7 @@ async fn main() -> Result {
             password,
             ip_address,
         } => {
-            let client = Client::new(&username, &password, ip_address);
+            let mut client = Client::new(&username, &password, ip_address)?;
             let status = client.get_status().await?;
             writeln!(io::stdout(), "{status:#?}")?;
         }
@@ -94,8 +94,8 @@ async fn main() -> Result {
             mode,
             area,
         } => {
-            let mut client = Client::new(&username, &password, ip_address);
-            client.change_mode(area, &mode).await?;
+            let mut client = Client::new(&username, &password, ip_address)?;
+            client.change_mode(area, mode).await?;
             writeln!(io::stdout(), "{mode:#?}")?;
         }
     }
