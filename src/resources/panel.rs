@@ -7,7 +7,7 @@ use crate::resources::ApiResponse;
 /// Represents the status of Area 1 and 2.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Modes {
-    /// Mode of Area 2
+    /// Mode of Area 1
     pub area1: Mode,
 
     /// Mode of Area 2
