@@ -284,3 +284,62 @@ DeviceKind {
     /// Shocksensor
     Shocksensor = 93,
 });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mode_deserialize_from_number() {
+        let mode: Mode = serde_json::from_str("0").unwrap();
+        assert_eq!(mode, Mode::Disarmed);
+    }
+
+    #[test]
+    fn mode_deserialize_from_string() {
+        let mode: Mode = serde_json::from_str("\"2\"").unwrap();
+        assert_eq!(mode, Mode::Home1);
+    }
+
+    #[test]
+    fn mode_display() {
+        assert_eq!(Mode::Armed.to_string(), "Armed");
+    }
+
+    #[test]
+    fn mode_from_str() {
+        assert_eq!("disarmed".parse::<Mode>().unwrap(), Mode::Disarmed);
+        assert_eq!("ARMED".parse::<Mode>().unwrap(), Mode::Armed);
+    }
+
+    #[test]
+    fn mode_from_str_unknown() {
+        assert!("unknown".parse::<Mode>().is_err());
+    }
+
+    #[test]
+    fn area_deserialize_from_number() {
+        let area: Area = serde_json::from_str("1").unwrap();
+        assert_eq!(area, Area::Area1);
+    }
+
+    #[test]
+    fn device_kind_unknown_value() {
+        let result: std::result::Result<DeviceKind, _> = serde_json::from_str("999");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn state_roundtrip() {
+        let state: State = serde_json::from_str("0").unwrap();
+        assert_eq!(state, State::Closed);
+        assert_eq!(state.to_string(), "Closed");
+    }
+
+    #[test]
+    fn status_roundtrip() {
+        let status: Status = serde_json::from_str("1").unwrap();
+        assert_eq!(status, Status::Ok);
+        assert_eq!(status.to_string(), "Ok");
+    }
+}

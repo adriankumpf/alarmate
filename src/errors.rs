@@ -45,3 +45,33 @@ impl Error {
         matches!(*self, Error::SessionTimeout)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_timeout_is_session_timeout() {
+        assert!(Error::SessionTimeout.is_session_timeout());
+    }
+
+    #[test]
+    fn other_errors_are_not_session_timeout() {
+        assert!(!Error::Unauthorized.is_session_timeout());
+        assert!(!Error::Panel("test".into()).is_session_timeout());
+        assert!(
+            !Error::Deserialize(serde_json::from_str::<()>("bad").unwrap_err())
+                .is_session_timeout()
+        );
+    }
+
+    #[test]
+    fn display_messages() {
+        assert_eq!(Error::SessionTimeout.to_string(), "the session expired");
+        assert_eq!(
+            Error::Unauthorized.to_string(),
+            "unauthorized: invalid credentials"
+        );
+        assert!(Error::Panel("oops".into()).to_string().contains("oops"));
+    }
+}
