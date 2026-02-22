@@ -1,94 +1,58 @@
-/// Creates an enum that can be deserialized from a number
-#[macro_export]
-macro_rules! enum_number {
-    (
-        $(#[$enum_attr:meta])*
-        $name:ident {
-            $(#[$attr:meta] $variant:ident = $value:expr_2021, )*
-        }
-    ) => {
-        $(#[$enum_attr])*
-        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-        #[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
-        pub enum $name {
-            $(#[$attr] $variant = $value,)*
-        }
-
-                impl ::std::str::FromStr for $name {
-            type Err = String;
-
-            fn from_str(s: &str) -> Result<Self,Self::Err> {
-                match s {
-                    $(stringify!($variant) |
-                    _ if s.eq_ignore_ascii_case(stringify!($variant)) => Ok($name::$variant),)+
-                    _                => Err({
-                                            let v = [
-                                                $(stringify!($variant),)+
-                                            ];
-                                            format!("valid values:{}",
-                                                v.iter().fold(String::new(), |a, i| {
-                                                    a + &format!(" {}", i)[..]
-                                                }))
-                                        })
-                }
+/// Implement `Serialize` (as variant name) and `Deserialize` (from integer or
+/// numeric string) for one or more `#[repr(u8)]` enums that derive `Display`
+/// and `TryFromPrimitive`.
+macro_rules! impl_numeric_serde {
+    ($($T:ty),+ $(,)?) => { $(
+        impl serde::Serialize for $T {
+            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                s.serialize_str(&self.to_string())
             }
         }
 
-        impl ::std::fmt::Display for $name {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                match *self {
-                    $($name::$variant => write!(f, stringify!($variant)),)+
-                }
+        impl<'de> serde::Deserialize<'de> for $T {
+            fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                $crate::utils::deserialize_numeric_enum(d)
             }
         }
+    )+ };
+}
 
-        impl ::serde::Serialize for $name {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: ::serde::Serializer,
-            {
-                serializer.serialize_str(match *self {
-                    $( $name::$variant => stringify!($variant), )*
-                })
+/// Deserialize an enum from a numeric value (integer or numeric string).
+///
+/// The target type must implement `TryFrom<u8>` (e.g. via
+/// `num_enum::TryFromPrimitive`) so that each discriminant maps to the
+/// corresponding variant.
+pub(crate) fn deserialize_numeric_enum<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    T: TryFrom<u8>,
+    <T as TryFrom<u8>>::Error: std::fmt::Display,
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::marker::PhantomData;
 
-            }
+    struct NumVisitor<T>(PhantomData<T>);
+
+    impl<'de, T> Visitor<'de> for NumVisitor<T>
+    where
+        T: TryFrom<u8>,
+        <T as TryFrom<u8>>::Error: std::fmt::Display,
+    {
+        type Value = T;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("positive integer or string")
         }
 
-        impl<'de> ::serde::Deserialize<'de> for $name {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: ::serde::Deserializer<'de>,
-            {
-                struct Visitor;
+        fn visit_u64<E: de::Error>(self, value: u64) -> Result<T, E> {
+            let byte = u8::try_from(value).map_err(E::custom)?;
+            T::try_from(byte).map_err(E::custom)
+        }
 
-                impl<'de> ::serde::de::Visitor<'de> for Visitor {
-                    type Value = $name;
-
-                    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        formatter.write_str("positive integer or string")
-                    }
-
-                    fn visit_u64<E>(self, value: u64) -> Result<$name, E>
-                    where
-                        E: ::serde::de::Error,
-                    {
-                        match value {
-                            $( $value => Ok($name::$variant), )*
-                            _ => Err(E::custom( format!("unknown {} value: {}", stringify!($name), value))), }
-                    }
-
-
-                    fn visit_str<E>(self, id: &str) -> Result<$name, E>
-                    where
-                        E: ::serde::de::Error
-                    {
-                        self.visit_u64(id.parse().map_err(::serde::de::Error::custom)?)
-                    }
-
-                }
-
-                deserializer.deserialize_any(Visitor)
-            }
+        fn visit_str<E: de::Error>(self, s: &str) -> Result<T, E> {
+            self.visit_u64(s.parse().map_err(de::Error::custom)?)
         }
     }
+
+    deserializer.deserialize_any(NumVisitor(PhantomData))
 }

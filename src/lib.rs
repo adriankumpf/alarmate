@@ -11,11 +11,12 @@
 
 #![deny(missing_docs)]
 
+#[macro_use]
+mod utils;
 mod client;
 mod constants;
 mod errors;
 mod resources;
-mod utils;
 
 pub use client::Client;
 pub use constants::{Area, DeviceKind, Mode};
