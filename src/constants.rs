@@ -1,9 +1,12 @@
-use crate::enum_number;
-use std::fmt;
+use num_enum::TryFromPrimitive;
+use strum::{Display, EnumString};
 
-enum_number!(
 /// Possible modes of an area
-Mode {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[strum(ascii_case_insensitive)]
+#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
+#[repr(u8)]
+pub enum Mode {
     /// Disarmed
     Disarmed = 0,
 
@@ -18,41 +21,53 @@ Mode {
 
     /// Home 3
     Home3 = 4,
-});
+}
 
-enum_number!(
 /// Areas of an alarm panel
-Area {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[strum(ascii_case_insensitive)]
+#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
+#[repr(u8)]
+pub enum Area {
     /// Area 1
     Area1 = 1,
 
     /// Area 2
     Area2 = 2,
-});
+}
 
-enum_number!(
 /// Possible status of an API response
-Status {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[strum(ascii_case_insensitive)]
+#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
+#[repr(u8)]
+pub enum Status {
     /// Error
     Error = 0,
 
     /// Ok
     Ok = 1,
-});
+}
 
-enum_number!(
 /// Possible states of a binary sensor
-State {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[strum(ascii_case_insensitive)]
+#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
+#[repr(u8)]
+pub enum State {
     /// Closed
     Closed = 0,
 
     /// Open
     Open = 1,
-});
+}
 
-enum_number!(
 /// Enumeration of Lupusec Alarm & Smarthome devices (incomplete)
-DeviceKind {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[strum(ascii_case_insensitive)]
+#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
+#[repr(u8)]
+pub enum DeviceKind {
     /// Remote Control
     RemoteControl1 = 2,
 
@@ -283,7 +298,9 @@ DeviceKind {
 
     /// Shocksensor
     Shocksensor = 93,
-});
+}
+
+impl_numeric_serde!(Mode, Area, Status, State, DeviceKind);
 
 #[cfg(test)]
 mod tests {
