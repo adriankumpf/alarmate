@@ -38,10 +38,6 @@ pub enum Error {
     /// A networking error communicating with the alarm panel
     #[error("error communicating with the panel: {0}")]
     Http(#[from] reqwest::Error),
-
-    /// An error for I/O operations
-    #[error("error for I/O operations: {0}")]
-    Io(#[from] std::io::Error),
 }
 
 impl Error {
