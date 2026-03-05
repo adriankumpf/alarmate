@@ -47,15 +47,16 @@ impl Client {
 
     /// Get the status of the Alarm Panel.
     ///
-    /// Automatically retries once if the panel reports a session timeout.
+    /// Automatically retries once if the panel reports a session timeout or
+    /// returns an unauthorized error.
     pub async fn get_status(&mut self) -> Result<Modes> {
         self.get::<panel::Condition>("panelCondGet").await
     }
 
     /// Change the mode of the given area.
     ///
-    /// Automatically retries once if the panel reports a session timeout,
-    /// clearing the cached token before the retry.
+    /// Automatically retries once if the panel reports a session timeout or
+    /// an unauthorized error, clearing the cached token before the retry.
     pub async fn change_mode(&mut self, area: Area, mode: Mode) -> Result {
         let payload = &[("mode", mode as u8), ("area", area as u8)];
 
@@ -67,7 +68,8 @@ impl Client {
 
     /// List all devices managed by the alarm panel.
     ///
-    /// Automatically retries once if the panel reports a session timeout.
+    /// Automatically retries once if the panel reports a session timeout or
+    /// returns an unauthorized error.
     pub async fn list_devices(&mut self) -> Result<Vec<devices::Device>> {
         self.get::<devices::List>("deviceListGet").await
     }
@@ -84,7 +86,7 @@ impl Client {
     {
         let res = self.send_get(action).await?;
         match parse_and_convert::<T>(res).await {
-            Err(ref e) if e.is_session_timeout() => {}
+            Err(ref e) if e.is_retryable() => {}
             other => return other,
         }
         parse_and_convert::<T>(self.send_get(action).await?).await
@@ -98,7 +100,7 @@ impl Client {
         let token = self.get_or_fetch_token().await?;
         let res = self.send_post(action, form, &token).await?;
         match parse_and_convert::<D>(res).await {
-            Err(ref e) if e.is_session_timeout() => {}
+            Err(ref e) if e.is_retryable() => {}
             other => return other,
         }
         self.token = None;
@@ -243,7 +245,7 @@ mod tests {
     fn parse_body_session_timeout() {
         let body = r#"<html>/action/login</html>"#;
         let result: Result<response::Response> = parse_body(reqwest::StatusCode::OK, body);
-        assert!(result.unwrap_err().is_session_timeout());
+        assert!(matches!(result.unwrap_err(), Error::SessionTimeout));
     }
 
     #[test]
@@ -311,6 +313,80 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/action/panelCondPost"))
             .respond_with(ResponseTemplate::new(200).set_body_string("<html>/action/login</html>"))
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        // Second POST succeeds
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"result": 1, "message": "ok"})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let base_url: reqwest::Url = format!("{}/action/", server.uri()).parse().unwrap();
+        let mut client = Client::with_base_url("user", "pass", base_url).unwrap();
+        let result = client.change_mode(Area::Area1, Mode::Disarmed).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn get_retries_on_unauthorized() {
+        let server = MockServer::start().await;
+
+        // First GET returns 401 Unauthorized
+        Mock::given(method("GET"))
+            .and(path("/action/panelCondGet"))
+            .respond_with(ResponseTemplate::new(401))
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        // Second GET returns valid JSON
+        Mock::given(method("GET"))
+            .and(path("/action/panelCondGet"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "forms": {
+                    "pcondform1": { "mode": 0 },
+                    "pcondform2": { "mode": 1 }
+                }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let base_url: reqwest::Url = format!("{}/action/", server.uri()).parse().unwrap();
+        let mut client = Client::with_base_url("user", "pass", base_url).unwrap();
+        let modes = client.get_status().await.unwrap();
+        assert_eq!(modes.area1, Mode::Disarmed);
+        assert_eq!(modes.area2, Mode::Armed);
+    }
+
+    #[tokio::test]
+    async fn post_retries_on_unauthorized() {
+        let server = MockServer::start().await;
+
+        // Token endpoint always succeeds (expect 2 calls: initial + retry)
+        Mock::given(method("GET"))
+            .and(path("/action/tokenGet"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({"result": 1, "message": "tok123"})),
+            )
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        // First POST returns 401 Unauthorized
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .respond_with(ResponseTemplate::new(401))
             .up_to_n_times(1)
             .expect(1)
             .mount(&server)

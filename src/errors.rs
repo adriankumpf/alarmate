@@ -42,8 +42,8 @@ pub enum Error {
 
 impl Error {
     #[must_use]
-    pub(crate) fn is_session_timeout(&self) -> bool {
-        matches!(*self, Error::SessionTimeout)
+    pub(crate) fn is_retryable(&self) -> bool {
+        matches!(*self, Error::SessionTimeout | Error::Unauthorized)
     }
 }
 
@@ -52,17 +52,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn session_timeout_is_session_timeout() {
-        assert!(Error::SessionTimeout.is_session_timeout());
+    fn retryable_errors_are_retryable() {
+        assert!(Error::SessionTimeout.is_retryable());
+        assert!(Error::Unauthorized.is_retryable());
     }
 
     #[test]
-    fn other_errors_are_not_session_timeout() {
-        assert!(!Error::Unauthorized.is_session_timeout());
-        assert!(!Error::Panel("test".into()).is_session_timeout());
+    fn other_errors_are_not_retryable() {
+        assert!(!Error::Panel("test".into()).is_retryable());
         assert!(
-            !Error::Deserialize(serde_json::from_str::<()>("bad").unwrap_err())
-                .is_session_timeout()
+            !Error::Deserialize(serde_json::from_str::<()>("bad").unwrap_err()).is_retryable()
         );
     }
 
