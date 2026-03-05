@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Retry on HTTP 401 Unauthorized errors (in addition to session timeouts)
+- Remove `is_session_timeout()` in favor of `is_retryable()`
+
 ## [0.4.0] - 2026-02-22
 
 ### Breaking Changes
