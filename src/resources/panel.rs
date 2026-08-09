@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::constants::Mode;
+use crate::constants::{Area, Mode};
 use crate::errors::Result;
 use crate::resources::ApiResponse;
 
@@ -12,6 +12,17 @@ pub struct Modes {
 
     /// Mode of Area 2
     pub area2: Mode,
+}
+
+impl Modes {
+    /// Return the mode of the given area.
+    #[must_use]
+    pub fn get(&self, area: Area) -> Mode {
+        match area {
+            Area::Area1 => self.area1,
+            Area::Area2 => self.area2,
+        }
+    }
 }
 
 #[derive(Deserialize)]

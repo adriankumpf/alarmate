@@ -2,8 +2,47 @@
 
 ## [Unreleased]
 
-- Retry on HTTP 401 Unauthorized errors (in addition to session timeouts)
-- Remove `is_session_timeout()` in favor of `is_retryable()`
+### Breaking Changes
+
+- `Client` methods take `&self` instead of `&mut self`, so one client can be
+  shared across tasks behind an `Arc`
+- `Error` is now `#[non_exhaustive]`
+- Rename `DeviceKind::ThermostatRcs_` to `ThermostatRcs`
+- Drop the unused `clap::ValueEnum` derive from `Status`, `State` and
+  `DeviceKind`
+
+### Added
+
+- Export `State` and `Status`, which were reachable through `Device`'s public
+  fields but could not be named
+- `Modes::get(area)` to look up a mode by `Area`
+- Long forms for the CLI connection flags (`--ip-address`, `--username`,
+  `--password`), which the README already documented
+
+### Changed
+
+- Retry on HTTP 401 Unauthorized errors in addition to session timeouts; the
+  panel returns both transiently
+
+### Fixed
+
+- `--help` no longer prints the value of `ALARMATE_PASSWORD` in cleartext
+- A session timeout during a GET now drops the cached token, instead of leaving
+  a dead one behind for the next POST to fail on
+- Fetching a token no longer nests one retry inside another, which let a single
+  `change_mode` issue up to six requests
+- Enum values now round-trip through serde: `Deserialize` accepts the variant
+  name that `Serialize` writes, not just the discriminant
+- The CLI reports errors via `Display` and exits non-zero, rather than printing
+  the `Debug` representation
+
+### Other Changes
+
+- Add request and connect timeouts, and disable proxy auto-detection so
+  credentials cannot be routed through a `HTTPS_PROXY`
+- Bound the response body retained in `Error::UnexpectedResponse`
+- Only reparse a response body without tabs when it fails to parse with them
+- Update dependencies
 
 ## [0.4.0] - 2026-02-22
 

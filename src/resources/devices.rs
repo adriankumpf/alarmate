@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn tolerant_list_empty() {
+    fn empty_list() {
         let json = serde_json::json!({ "senrows": [] });
         let list: List = serde_json::from_value(json).unwrap();
         assert!(list.into_result().unwrap().is_empty());
