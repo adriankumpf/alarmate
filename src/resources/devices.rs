@@ -37,9 +37,9 @@ pub(crate) struct List {
 }
 
 impl ApiResponse for List {
-    type Type = Vec<Device>;
+    type Output = Vec<Device>;
 
-    fn into_result(self) -> Result<Self::Type> {
+    fn into_result(self) -> Result<Self::Output> {
         Ok(self.list)
     }
 }

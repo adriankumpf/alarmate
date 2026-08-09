@@ -20,9 +20,9 @@ pub(crate) struct Condition {
 }
 
 impl ApiResponse for Condition {
-    type Type = Modes;
+    type Output = Modes;
 
-    fn into_result(self) -> Result<Self::Type> {
+    fn into_result(self) -> Result<Self::Output> {
         Ok(Modes {
             area1: self.forms.pcondform1.mode,
             area2: self.forms.pcondform2.mode,

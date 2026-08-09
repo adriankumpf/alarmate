@@ -80,7 +80,7 @@ impl Client {
             .expect("action path should be a valid relative URL segment")
     }
 
-    async fn get<T>(&mut self, action: &str) -> Result<T::Type>
+    async fn get<T>(&mut self, action: &str) -> Result<T::Output>
     where
         T: ApiResponse + serde::de::DeserializeOwned,
     {
@@ -92,7 +92,7 @@ impl Client {
         parse_and_convert::<T>(self.send_get(action).await?).await
     }
 
-    async fn post<T, D>(&mut self, action: &str, form: &T) -> Result<D::Type>
+    async fn post<T, D>(&mut self, action: &str, form: &T) -> Result<D::Output>
     where
         T: Serialize,
         D: ApiResponse + serde::de::DeserializeOwned,
@@ -171,7 +171,7 @@ where
     parse_body(status, &body)
 }
 
-async fn parse_and_convert<D>(res: reqwest::Response) -> Result<D::Type>
+async fn parse_and_convert<D>(res: reqwest::Response) -> Result<D::Output>
 where
     D: ApiResponse + serde::de::DeserializeOwned,
 {

@@ -12,8 +12,8 @@ use crate::errors::Result;
 /// methods can uniformly extract the inner value.
 pub trait ApiResponse {
     /// The domain type produced after validating and unwrapping the response.
-    type Type;
+    type Output;
 
     /// Validate the response and extract the inner value.
-    fn into_result(self) -> Result<Self::Type>;
+    fn into_result(self) -> Result<Self::Output>;
 }
