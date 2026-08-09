@@ -1,8 +1,11 @@
 use num_enum::TryFromPrimitive;
+use serde::Serialize;
 use strum::{Display, EnumString};
 
+use crate::utils::impl_enum_deserialize;
+
 /// Possible modes of an area
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
 #[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
 #[repr(u8)]
@@ -24,7 +27,7 @@ pub enum Mode {
 }
 
 /// Areas of an alarm panel
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
 #[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
 #[repr(u8)]
@@ -37,9 +40,8 @@ pub enum Area {
 }
 
 /// Possible status of an API response
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
-#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
 #[repr(u8)]
 pub enum Status {
     /// Error
@@ -50,9 +52,8 @@ pub enum Status {
 }
 
 /// Possible states of a binary sensor
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
-#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
 #[repr(u8)]
 pub enum State {
     /// Closed
@@ -63,9 +64,12 @@ pub enum State {
 }
 
 /// Enumeration of Lupusec Alarm & Smarthome devices (incomplete)
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Display, EnumString, TryFromPrimitive)]
+///
+/// A device type the panel reports but this enum does not list fails to
+/// deserialize, which fails the whole [`list_devices`](crate::Client::list_devices)
+/// call. Please open an issue if your panel reports an unknown type.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
-#[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
 #[repr(u8)]
 pub enum DeviceKind {
     /// Remote Control
@@ -77,7 +81,7 @@ pub enum DeviceKind {
     /// Door Contact
     DoorContact = 4,
 
-    /// water sensor
+    /// Water sensor
     WaterSensor = 5,
 
     /// Panic Button
@@ -92,10 +96,10 @@ pub enum DeviceKind {
     /// Motion Detector
     MotionDetector = 9,
 
-    /// outdoor motion detector
+    /// Outdoor motion detector
     OutdoorMotionDetector = 10,
 
-    /// Smoke / Heat detector
+    /// Smoke / heat detector
     SmokedetectorAndHeatDetector = 11,
 
     /// GAS Detector
@@ -104,7 +108,7 @@ pub enum DeviceKind {
     /// CO Detector
     CoDetector = 13,
 
-    /// heat detector
+    /// Heat detector
     HeatDetector1 = 14,
 
     /// Keypad
@@ -119,7 +123,7 @@ pub enum DeviceKind {
     /// Keypad
     Keypad3 = 18,
 
-    /// glass break sensor,
+    /// Glass break sensor
     GlassBreakSensor = 19,
 
     /// Temperature sensor
@@ -191,10 +195,10 @@ pub enum DeviceKind {
     /// Dialer
     Dialer = 44,
 
-    /// indoor siren
+    /// Indoor siren
     IndoorSiren = 45,
 
-    /// outdoor siren
+    /// Outdoor siren
     OutdoorSiren = 46,
 
     /// HRRs
@@ -224,13 +228,13 @@ pub enum DeviceKind {
     /// Radon sensor
     RadonSensor = 55,
 
-    /// thermostat (Horstmann)
+    /// Thermostat (Horstmann)
     ThermostatHorstmann = 56,
 
     /// Door Lock
     DoorLock = 57,
 
-    /// heat detector
+    /// Heat detector
     HeatDetector2 = 58,
 
     /// Sudden Motion Sensor
@@ -248,7 +252,7 @@ pub enum DeviceKind {
     /// Water Meter
     WaterMeter = 63,
 
-    /// gas meters
+    /// Gas meters
     GasMeters = 64,
 
     /// Dimmer
@@ -267,7 +271,7 @@ pub enum DeviceKind {
     DoorlockSecure = 70,
 
     /// Thermostat (RCS)
-    ThermostatRcs_ = 71,
+    ThermostatRcs = 71,
 
     /// Door Lock (Yale)
     DoorlockYale = 72,
@@ -300,7 +304,7 @@ pub enum DeviceKind {
     Shocksensor = 93,
 }
 
-impl_numeric_serde!(Mode, Area, Status, State, DeviceKind);
+impl_enum_deserialize!(Mode, Area, Status, State, DeviceKind);
 
 #[cfg(test)]
 mod tests {
@@ -341,9 +345,15 @@ mod tests {
     }
 
     #[test]
-    fn device_kind_unknown_value() {
-        let result: std::result::Result<DeviceKind, _> = serde_json::from_str("999");
-        assert!(result.is_err());
+    fn device_kind_out_of_range_value() {
+        // Rejected by `u8::try_from` before it ever reaches `DeviceKind`.
+        assert!(serde_json::from_str::<DeviceKind>("999").is_err());
+    }
+
+    #[test]
+    fn device_kind_unassigned_discriminant() {
+        // In range for a u8, but not a discriminant this enum knows about.
+        assert!(serde_json::from_str::<DeviceKind>("65").is_err());
     }
 
     #[test]
@@ -358,5 +368,27 @@ mod tests {
         let status: Status = serde_json::from_str("1").unwrap();
         assert_eq!(status, Status::Ok);
         assert_eq!(status.to_string(), "Ok");
+    }
+
+    #[test]
+    fn serde_roundtrips_through_variant_name() {
+        for mode in [
+            Mode::Disarmed,
+            Mode::Armed,
+            Mode::Home1,
+            Mode::Home2,
+            Mode::Home3,
+        ] {
+            let json = serde_json::to_string(&mode).unwrap();
+            assert_eq!(json, format!("\"{mode}\""));
+            assert_eq!(serde_json::from_str::<Mode>(&json).unwrap(), mode);
+        }
+
+        let kind = DeviceKind::DoorContact;
+        assert_eq!(serde_json::to_string(&kind).unwrap(), "\"DoorContact\"");
+        assert_eq!(
+            serde_json::from_str::<DeviceKind>("\"DoorContact\"").unwrap(),
+            kind
+        );
     }
 }

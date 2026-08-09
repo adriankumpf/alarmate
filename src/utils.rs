@@ -1,47 +1,49 @@
-/// Implement `Serialize` (as variant name) and `Deserialize` (from integer or
-/// numeric string) for one or more `#[repr(u8)]` enums that derive `Display`
-/// and `TryFromPrimitive`.
-macro_rules! impl_numeric_serde {
-    ($($T:ty),+ $(,)?) => { $(
-        impl serde::Serialize for $T {
-            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-                s.serialize_str(&self.to_string())
-            }
-        }
+use std::fmt::{self, Display};
+use std::marker::PhantomData;
+use std::str::FromStr;
 
+use serde::de::{self, Deserializer, Visitor};
+
+/// Implement `Deserialize` for one or more `#[repr(u8)]` enums that derive
+/// `EnumString` and `TryFromPrimitive`.
+///
+/// The panel sends discriminants, while `#[derive(Serialize)]` writes variant
+/// names, so both have to be accepted for the two directions to round-trip.
+macro_rules! impl_enum_deserialize {
+    ($($T:ty),+ $(,)?) => { $(
         impl<'de> serde::Deserialize<'de> for $T {
             fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                $crate::utils::deserialize_numeric_enum(d)
+                $crate::utils::deserialize_enum(d)
             }
         }
     )+ };
 }
 
-/// Deserialize an enum from a numeric value (integer or numeric string).
+pub(crate) use impl_enum_deserialize;
+
+/// Deserialize a fieldless enum from its discriminant or its variant name.
 ///
 /// The target type must implement `TryFrom<u8>` (e.g. via
-/// `num_enum::TryFromPrimitive`) so that each discriminant maps to the
-/// corresponding variant.
-pub(crate) fn deserialize_numeric_enum<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+/// `num_enum::TryFromPrimitive`) and `FromStr` (e.g. via `strum::EnumString`).
+pub(crate) fn deserialize_enum<'de, T, D>(deserializer: D) -> Result<T, D::Error>
 where
-    T: TryFrom<u8>,
-    <T as TryFrom<u8>>::Error: std::fmt::Display,
-    D: serde::Deserializer<'de>,
+    T: TryFrom<u8> + FromStr,
+    <T as TryFrom<u8>>::Error: Display,
+    <T as FromStr>::Err: Display,
+    D: Deserializer<'de>,
 {
-    use serde::de::{self, Visitor};
-    use std::marker::PhantomData;
+    struct EnumVisitor<T>(PhantomData<T>);
 
-    struct NumVisitor<T>(PhantomData<T>);
-
-    impl<'de, T> Visitor<'de> for NumVisitor<T>
+    impl<T> Visitor<'_> for EnumVisitor<T>
     where
-        T: TryFrom<u8>,
-        <T as TryFrom<u8>>::Error: std::fmt::Display,
+        T: TryFrom<u8> + FromStr,
+        <T as TryFrom<u8>>::Error: Display,
+        <T as FromStr>::Err: Display,
     {
         type Value = T;
 
-        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str("positive integer or string")
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an enum discriminant or variant name")
         }
 
         fn visit_u64<E: de::Error>(self, value: u64) -> Result<T, E> {
@@ -50,9 +52,13 @@ where
         }
 
         fn visit_str<E: de::Error>(self, s: &str) -> Result<T, E> {
-            self.visit_u64(s.parse().map_err(de::Error::custom)?)
+            match s.parse::<u8>() {
+                Ok(byte) => self.visit_u64(u64::from(byte)),
+                // Not a discriminant, so fall back to the variant name.
+                Err(_) => s.parse().map_err(E::custom),
+            }
         }
     }
 
-    deserializer.deserialize_any(NumVisitor(PhantomData))
+    deserializer.deserialize_any(EnumVisitor(PhantomData))
 }

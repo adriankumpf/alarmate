@@ -11,9 +11,9 @@ pub struct Response {
 }
 
 impl ApiResponse for Response {
-    type Type = String;
+    type Output = String;
 
-    fn into_result(self) -> Result<Self::Type> {
+    fn into_result(self) -> Result<Self::Output> {
         if self.result == Status::Error {
             return Err(Error::Panel(self.message));
         }

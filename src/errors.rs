@@ -4,7 +4,11 @@ use thiserror::Error;
 pub type Result<T = ()> = std::result::Result<T, Error>;
 
 /// Possible Errors
+///
+/// Non-exhaustive: more variants will be added as more of the panel's API is
+/// covered.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// An error reported by the alarm panel
     #[error("error reported by the alarm panel: {0}")]
@@ -20,6 +24,7 @@ pub enum Error {
 
     /// An unexpected response error
     #[error("received an unexpected response with status {status}: {body}")]
+    #[non_exhaustive]
     UnexpectedResponse {
         /// The HTTP status code of the response
         status: reqwest::StatusCode,
@@ -40,31 +45,9 @@ pub enum Error {
     Http(#[from] reqwest::Error),
 }
 
-impl Error {
-    #[must_use]
-    pub(crate) fn is_session_timeout(&self) -> bool {
-        matches!(*self, Error::SessionTimeout)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn session_timeout_is_session_timeout() {
-        assert!(Error::SessionTimeout.is_session_timeout());
-    }
-
-    #[test]
-    fn other_errors_are_not_session_timeout() {
-        assert!(!Error::Unauthorized.is_session_timeout());
-        assert!(!Error::Panel("test".into()).is_session_timeout());
-        assert!(
-            !Error::Deserialize(serde_json::from_str::<()>("bad").unwrap_err())
-                .is_session_timeout()
-        );
-    }
 
     #[test]
     fn display_messages() {

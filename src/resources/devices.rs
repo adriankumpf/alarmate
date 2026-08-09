@@ -5,7 +5,7 @@ use crate::errors::Result;
 use crate::resources::ApiResponse;
 
 /// Holds information about a Lupusec Alarm / Smarthome device
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Device {
     /// The sensor ID
     pub sid: String,
@@ -37,9 +37,9 @@ pub(crate) struct List {
 }
 
 impl ApiResponse for List {
-    type Type = Vec<Device>;
+    type Output = Vec<Device>;
 
-    fn into_result(self) -> Result<Self::Type> {
+    fn into_result(self) -> Result<Self::Output> {
         Ok(self.list)
     }
 }
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn tolerant_list_empty() {
+    fn empty_list() {
         let json = serde_json::json!({ "senrows": [] });
         let list: List = serde_json::from_value(json).unwrap();
         assert!(list.into_result().unwrap().is_empty());

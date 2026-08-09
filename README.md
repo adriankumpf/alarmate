@@ -33,7 +33,8 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help  Print help information
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 Connection options (`-I`, `-U`, `-P`) are required for all commands and can also
@@ -45,6 +46,9 @@ be set via environment variables:
 | `-U, --username`   | `ALARMATE_USERNAME`   |
 | `-P, --password`   | `ALARMATE_PASSWORD`   |
 
+Prefer `ALARMATE_PASSWORD` over `-P`: command-line arguments are visible to
+every other user on the machine via `ps`.
+
 ### Library
 
 ```rust
@@ -52,11 +56,18 @@ use alarmate::{Area, Client, Mode};
 
 #[tokio::main]
 async fn main() -> alarmate::Result {
-    let mut client = Client::new("admin", "changeme", "192.168.178.10".parse().unwrap())?;
+    let client = Client::new("admin", "changeme", "192.168.178.10".parse().unwrap())?;
     client.change_mode(Area::Area1, Mode::Disarmed).await?;
     Ok(())
 }
 ```
+
+All methods take `&self`, so a single client can be shared across tasks behind
+an `Arc`.
+
+> [!WARNING]
+> LUPUSEC panels ship with self-signed certificates, so the client does not
+> validate them. Only use it on a network you trust.
 
 ## Documentation
 
