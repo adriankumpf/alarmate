@@ -4,7 +4,11 @@ use thiserror::Error;
 pub type Result<T = ()> = std::result::Result<T, Error>;
 
 /// Possible Errors
+///
+/// This enum is `#[non_exhaustive]`: new variants may be added as more of the
+/// panel's API is covered, so `match` on it with a catch-all arm.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// An error reported by the alarm panel
     #[error("error reported by the alarm panel: {0}")]
@@ -40,28 +44,9 @@ pub enum Error {
     Http(#[from] reqwest::Error),
 }
 
-impl Error {
-    #[must_use]
-    pub(crate) fn is_retryable(&self) -> bool {
-        matches!(*self, Error::SessionTimeout | Error::Unauthorized)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn retryable_errors_are_retryable() {
-        assert!(Error::SessionTimeout.is_retryable());
-        assert!(Error::Unauthorized.is_retryable());
-    }
-
-    #[test]
-    fn other_errors_are_not_retryable() {
-        assert!(!Error::Panel("test".into()).is_retryable());
-        assert!(!Error::Deserialize(serde_json::from_str::<()>("bad").unwrap_err()).is_retryable());
-    }
 
     #[test]
     fn display_messages() {
