@@ -5,8 +5,8 @@ pub type Result<T = ()> = std::result::Result<T, Error>;
 
 /// Possible Errors
 ///
-/// This enum is `#[non_exhaustive]`: new variants may be added as more of the
-/// panel's API is covered, so `match` on it with a catch-all arm.
+/// Non-exhaustive: more variants will be added as more of the panel's API is
+/// covered.
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
@@ -24,6 +24,7 @@ pub enum Error {
 
     /// An unexpected response error
     #[error("received an unexpected response with status {status}: {body}")]
+    #[non_exhaustive]
     UnexpectedResponse {
         /// The HTTP status code of the response
         status: reqwest::StatusCode,

@@ -13,6 +13,7 @@
 //! behind an [`Arc`](std::sync::Arc).
 
 #![deny(missing_docs)]
+#![warn(missing_debug_implementations)]
 
 mod client;
 mod constants;
@@ -24,3 +25,7 @@ pub use client::Client;
 pub use constants::{Area, DeviceKind, Mode, State, Status};
 pub use errors::{Error, Result};
 pub use resources::{devices::Device, panel::Modes};
+
+/// Re-exported so [`Error::UnexpectedResponse`] can be inspected without
+/// depending on `reqwest` directly.
+pub use reqwest::StatusCode;

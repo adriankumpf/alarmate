@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+use std::ops::Index;
+
 use crate::constants::{Area, Mode};
 use crate::errors::Result;
 use crate::resources::ApiResponse;
 
 /// Represents the status of Area 1 and 2.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Modes {
     /// Mode of Area 1
     pub area1: Mode,
@@ -14,13 +16,14 @@ pub struct Modes {
     pub area2: Mode,
 }
 
-impl Modes {
-    /// Return the mode of the given area.
-    #[must_use]
-    pub fn get(&self, area: Area) -> Mode {
+/// Look up an area's mode dynamically: `modes[Area::Area1]`.
+impl Index<Area> for Modes {
+    type Output = Mode;
+
+    fn index(&self, area: Area) -> &Mode {
         match area {
-            Area::Area1 => self.area1,
-            Area::Area2 => self.area2,
+            Area::Area1 => &self.area1,
+            Area::Area2 => &self.area2,
         }
     }
 }
@@ -66,7 +69,22 @@ mod tests {
         });
         let condition: Condition = serde_json::from_value(json).unwrap();
         let modes = condition.into_result().unwrap();
-        assert_eq!(modes.area1, Mode::Disarmed);
-        assert_eq!(modes.area2, Mode::Armed);
+        assert_eq!(
+            modes,
+            Modes {
+                area1: Mode::Disarmed,
+                area2: Mode::Armed,
+            }
+        );
+    }
+
+    #[test]
+    fn index_by_area() {
+        let modes = Modes {
+            area1: Mode::Disarmed,
+            area2: Mode::Armed,
+        };
+        assert_eq!(modes[Area::Area1], Mode::Disarmed);
+        assert_eq!(modes[Area::Area2], Mode::Armed);
     }
 }
