@@ -4,20 +4,13 @@ use std::str::FromStr;
 
 use serde::de::{self, Deserializer, Visitor};
 
-/// Implement `Serialize` and `Deserialize` for one or more `#[repr(u8)]` enums
-/// that derive `AsRefStr`, `EnumString` and `TryFromPrimitive`.
+/// Implement `Deserialize` for one or more `#[repr(u8)]` enums that derive
+/// `EnumString` and `TryFromPrimitive`.
 ///
-/// Values are written as the variant name and read back from either the
-/// discriminant — which is what the panel sends — or the variant name, so the
-/// two directions round-trip.
-macro_rules! impl_enum_serde {
+/// The panel sends discriminants, while `#[derive(Serialize)]` writes variant
+/// names, so both have to be accepted for the two directions to round-trip.
+macro_rules! impl_enum_deserialize {
     ($($T:ty),+ $(,)?) => { $(
-        impl serde::Serialize for $T {
-            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-                s.serialize_str(self.as_ref())
-            }
-        }
-
         impl<'de> serde::Deserialize<'de> for $T {
             fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
                 $crate::utils::deserialize_enum(d)
@@ -26,7 +19,7 @@ macro_rules! impl_enum_serde {
     )+ };
 }
 
-pub(crate) use impl_enum_serde;
+pub(crate) use impl_enum_deserialize;
 
 /// Deserialize a fieldless enum from its discriminant or its variant name.
 ///
@@ -61,8 +54,7 @@ where
         fn visit_str<E: de::Error>(self, s: &str) -> Result<T, E> {
             match s.parse::<u8>() {
                 Ok(byte) => self.visit_u64(u64::from(byte)),
-                // Not a discriminant, so fall back to the variant name — that is
-                // what our own `Serialize` impl writes.
+                // Not a discriminant, so fall back to the variant name.
                 Err(_) => s.parse().map_err(E::custom),
             }
         }

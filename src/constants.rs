@@ -1,10 +1,11 @@
 use num_enum::TryFromPrimitive;
-use strum::{AsRefStr, Display, EnumString};
+use serde::Serialize;
+use strum::{Display, EnumString};
 
-use crate::utils::impl_enum_serde;
+use crate::utils::impl_enum_deserialize;
 
 /// Possible modes of an area
-#[derive(Clone, Copy, Debug, Eq, PartialEq, AsRefStr, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
 #[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
 #[repr(u8)]
@@ -26,7 +27,7 @@ pub enum Mode {
 }
 
 /// Areas of an alarm panel
-#[derive(Clone, Copy, Debug, Eq, PartialEq, AsRefStr, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
 #[cfg_attr(feature = "build-binary", derive(clap::ValueEnum))]
 #[repr(u8)]
@@ -39,7 +40,7 @@ pub enum Area {
 }
 
 /// Possible status of an API response
-#[derive(Clone, Copy, Debug, Eq, PartialEq, AsRefStr, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
 #[repr(u8)]
 pub enum Status {
@@ -51,7 +52,7 @@ pub enum Status {
 }
 
 /// Possible states of a binary sensor
-#[derive(Clone, Copy, Debug, Eq, PartialEq, AsRefStr, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
 #[repr(u8)]
 pub enum State {
@@ -67,7 +68,7 @@ pub enum State {
 /// A device type the panel reports but this enum does not list fails to
 /// deserialize, which fails the whole [`list_devices`](crate::Client::list_devices)
 /// call. Please open an issue if your panel reports an unknown type.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, AsRefStr, Display, EnumString, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Display, EnumString, TryFromPrimitive)]
 #[strum(ascii_case_insensitive)]
 #[repr(u8)]
 pub enum DeviceKind {
@@ -303,7 +304,7 @@ pub enum DeviceKind {
     Shocksensor = 93,
 }
 
-impl_enum_serde!(Mode, Area, Status, State, DeviceKind);
+impl_enum_deserialize!(Mode, Area, Status, State, DeviceKind);
 
 #[cfg(test)]
 mod tests {
