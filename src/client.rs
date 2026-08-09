@@ -2,9 +2,10 @@ use reqwest::header;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use std::fmt;
 use std::future::Future;
 use std::net::Ipv4Addr;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 use crate::Modes;
@@ -12,29 +13,55 @@ use crate::constants::{Area, Mode};
 use crate::errors::{Error, Result};
 use crate::resources::{ApiResponse, devices, panel, response};
 
-/// How long to wait for a complete response before giving up.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// How long to wait for the TCP and TLS handshake with the panel.
+/// Bounds the TCP and TLS handshake, which `REQUEST_TIMEOUT` alone would let
+/// consume the whole budget.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Upper bound on the response body retained in [`Error::UnexpectedResponse`].
-///
 /// The panel serves full HTML pages on failure, which are large and of little
 /// diagnostic value beyond their first few lines.
-const MAX_ERROR_BODY: usize = 512;
+const MAX_ERROR_BODY_BYTES: usize = 512;
+
+/// The path the panel serves once a session has expired.
+const LOGIN_PATH: &str = "/action/login";
 
 /// An asynchronous client for the LUPUSEC HTTP API.
 ///
 /// The client owns a connection pool and caches the panel's session token, so a
 /// single instance should be shared rather than created per request. Every
 /// method takes `&self`, so an `Arc<Client>` can be used from multiple tasks.
+///
+/// Every request is retried once if the panel reports a session timeout or an
+/// unauthorized error, both of which it returns transiently; the cached token is
+/// dropped before the retry.
 pub struct Client {
     http: reqwest::Client,
     username: String,
     password: String,
     base_url: reqwest::Url,
     token: Mutex<Option<String>>,
+}
+
+/// Redacts the credentials, so a `Client` can sit in a `Debug` application
+/// state without leaking them into logs.
+impl fmt::Debug for Client {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // `try_lock`, because formatting must not block or panic just because
+        // another task holds the token.
+        let token = match self.token.try_lock() {
+            Ok(slot) if slot.is_some() => "<redacted>",
+            Ok(_) => "<unset>",
+            Err(_) => "<locked>",
+        };
+
+        f.debug_struct("Client")
+            .field("base_url", &self.base_url.as_str())
+            .field("username", &self.username)
+            .field("password", &"<redacted>")
+            .field("token", &token)
+            .finish()
+    }
 }
 
 impl Client {
@@ -78,9 +105,6 @@ impl Client {
 
     /// Get the status of the alarm panel.
     ///
-    /// Retries once if the panel reports a session timeout or an unauthorized
-    /// error, both of which it returns transiently.
-    ///
     /// # Errors
     ///
     /// Returns an error if the panel cannot be reached, rejects the
@@ -91,9 +115,6 @@ impl Client {
 
     /// Change the mode of the given area.
     ///
-    /// Retries once if the panel reports a session timeout or an unauthorized
-    /// error, both of which it returns transiently.
-    ///
     /// # Errors
     ///
     /// Returns an error if the panel cannot be reached, rejects the
@@ -101,16 +122,13 @@ impl Client {
     pub async fn change_mode(&self, area: Area, mode: Mode) -> Result {
         let payload = &[("mode", mode as u8), ("area", area as u8)];
 
-        self.post::<_, response::Response>("panelCondPost", payload)
+        self.post::<response::Response, _>("panelCondPost", payload)
             .await?;
 
         Ok(())
     }
 
     /// List all devices managed by the alarm panel.
-    ///
-    /// Retries once if the panel reports a session timeout or an unauthorized
-    /// error, both of which it returns transiently.
     ///
     /// # Errors
     ///
@@ -120,49 +138,51 @@ impl Client {
         self.get::<devices::List>("deviceListGet").await
     }
 
-    async fn get<T>(&self, action: &str) -> Result<T::Output>
+    async fn get<D>(&self, action: &str) -> Result<D::Output>
     where
-        T: ApiResponse + DeserializeOwned,
+        D: ApiResponse + DeserializeOwned,
     {
-        self.send_retrying::<T, _>(|| async move { self.send_get(action).await })
+        self.retrying(|| async move { parse::<D>(self.send_get(action).await?).await })
             .await
     }
 
-    async fn post<T, D>(&self, action: &str, form: &T) -> Result<D::Output>
+    async fn post<D, F>(&self, action: &str, form: &F) -> Result<D::Output>
     where
-        T: Serialize + ?Sized,
         D: ApiResponse + DeserializeOwned,
+        F: Serialize + ?Sized,
     {
-        self.send_retrying::<D, _>(|| async move {
+        self.retrying(|| async move {
             let token = self.token().await?;
-            self.send_post(action, form, &token).await
+            parse::<D>(self.send_post(action, form, &token).await?).await
         })
         .await
     }
 
-    /// Send a request, retrying it once if the panel's session state is stale.
+    /// Run an operation, retrying it once if the panel's session state is stale.
     ///
-    /// The panel also returns 401 transiently when its session state is
-    /// confused, so an unauthorized response is retried like an expired one.
-    /// The cost is that genuinely wrong credentials are tried twice.
+    /// The panel returns 401 transiently when its session state is confused, so
+    /// an unauthorized response is retried like an expired one. The cost is that
+    /// genuinely wrong credentials are tried twice.
     ///
-    /// Either way the session as a whole is suspect, so the cached token is
-    /// dropped before retrying. GET requests do not use the token, but leaving
-    /// a dead one behind would make the next POST fail.
+    /// Either way the whole session is suspect, so the cached token is dropped
+    /// before retrying — including for GETs, which do not send it themselves but
+    /// would otherwise leave a dead token behind for the next POST.
     ///
-    /// `send` is an `Fn` returning a named future rather than an `AsyncFn`:
+    /// The retried unit is the entire operation, token fetch included, so a
+    /// session that expires between fetching the token and using it recovers.
+    ///
+    /// `op` is an `Fn` returning a named future rather than an `AsyncFn`:
     /// `AsyncFn` carries a higher-ranked lifetime, which makes the resulting
     /// future impossible to prove `Send` and breaks callers that need one — an
     /// axum handler, for instance.
-    async fn send_retrying<D, F>(&self, send: impl Fn() -> F) -> Result<D::Output>
+    async fn retrying<T, F>(&self, op: impl Fn() -> F) -> Result<T>
     where
-        D: ApiResponse + DeserializeOwned,
-        F: Future<Output = Result<reqwest::Response>>,
+        F: Future<Output = Result<T>>,
     {
-        match parse::<D>(send().await?).await {
+        match op().await {
             Err(Error::SessionTimeout | Error::Unauthorized) => {
-                *self.token.lock().expect("token lock poisoned") = None;
-                parse::<D>(send().await?).await
+                *self.token_slot() = None;
+                op().await
             }
             other => other,
         }
@@ -202,18 +222,22 @@ impl Client {
             .await?)
     }
 
-    /// Return the cached session token, requesting a new one if there is none.
+    fn token_slot(&self) -> MutexGuard<'_, Option<String>> {
+        self.token.lock().expect("token lock poisoned")
+    }
+
+    /// Tasks that miss the cache concurrently will each fetch a token; the last
+    /// one wins. Not worth serializing for a handful of requests.
     async fn token(&self) -> Result<String> {
-        if let Some(token) = self.token.lock().expect("token lock poisoned").clone() {
+        let cached = self.token_slot().clone();
+        if let Some(token) = cached {
             return Ok(token);
         }
 
-        // Deliberately not routed through `send_retrying`: the caller is already
-        // wrapped in it, and it re-runs the whole request — this fetch included
-        // — after a session timeout. Nesting the two would square the number of
-        // requests a single call can make.
+        // Not routed through `retrying`: the caller already retries this fetch,
+        // and nesting the two would multiply the requests one call can make.
         let token = parse::<response::Response>(self.send_get("tokenGet").await?).await?;
-        *self.token.lock().expect("token lock poisoned") = Some(token.clone());
+        *self.token_slot() = Some(token.clone());
 
         Ok(token)
     }
@@ -223,9 +247,10 @@ async fn parse<D>(res: reqwest::Response) -> Result<D::Output>
 where
     D: ApiResponse + DeserializeOwned,
 {
-    // reqwest has already followed the panel's redirect, so the final URL is the
-    // most direct evidence that the session expired.
-    if res.url().path().ends_with("/action/login") {
+    // An expired session lands on the login page. reqwest has already followed
+    // the redirect, so the final URL says so directly; `parse_body` covers the
+    // panels that serve the page without redirecting.
+    if res.url().path().ends_with(LOGIN_PATH) {
         return Err(Error::SessionTimeout);
     }
 
@@ -247,10 +272,9 @@ fn parse_body<D: DeserializeOwned>(status: reqwest::StatusCode, body: &str) -> R
     }
 
     match parse_json(body) {
-        // The panel serves the /action/login page instead of JSON once the
-        // session has expired. Report that as a timeout so the caller can retry
-        // with a fresh session, rather than as a confusing serde error.
-        Err(_) if body.contains("/action/login") => Err(Error::SessionTimeout),
+        // Report the login page as a timeout so the caller retries with a fresh
+        // session, rather than as a confusing serde error.
+        Err(_) if body.contains(LOGIN_PATH) => Err(Error::SessionTimeout),
         Err(e) => Err(e.into()),
         Ok(model) => Ok(model),
     }
@@ -259,9 +283,8 @@ fn parse_body<D: DeserializeOwned>(status: reqwest::StatusCode, body: &str) -> R
 /// Deserialize a panel response, working around the raw tabs it emits.
 ///
 /// `serde_json` accepts tabs between tokens but rejects them inside string
-/// values, so a body that fails to parse is retried with the tabs removed. That
-/// costs a copy only on the bodies that actually need it, and it does mean a tab
-/// inside e.g. a device name is dropped rather than preserved.
+/// values, so a body that fails to parse is retried with the tabs removed. A tab
+/// inside e.g. a device name is therefore dropped rather than preserved.
 fn parse_json<D: DeserializeOwned>(body: &str) -> serde_json::Result<D> {
     serde_json::from_str(body).or_else(|e| {
         if body.contains('\t') {
@@ -273,10 +296,16 @@ fn parse_json<D: DeserializeOwned>(body: &str) -> serde_json::Result<D> {
 }
 
 fn truncate(body: &str) -> String {
-    match body.char_indices().nth(MAX_ERROR_BODY) {
-        Some((end, _)) => format!("{}… ({} bytes total)", &body[..end], body.len()),
-        None => body.to_owned(),
+    if body.len() <= MAX_ERROR_BODY_BYTES {
+        return body.to_owned();
     }
+
+    let mut end = MAX_ERROR_BODY_BYTES;
+    while !body.is_char_boundary(end) {
+        end -= 1;
+    }
+
+    format!("{}… ({} bytes total)", &body[..end], body.len())
 }
 
 #[cfg(test)]
@@ -304,6 +333,17 @@ mod tests {
         assert_send(client.get_status());
         assert_send(client.list_devices());
         assert_send(client.change_mode(Area::Area1, Mode::Disarmed));
+    }
+
+    #[test]
+    fn debug_redacts_the_credentials() {
+        let client = Client::new("user", "hunter2", "192.168.1.1".parse().unwrap()).unwrap();
+        *client.token_slot() = Some("tok123".into());
+
+        let debug = format!("{client:?}");
+        assert!(!debug.contains("hunter2"), "{debug}");
+        assert!(!debug.contains("tok123"), "{debug}");
+        assert!(debug.contains("192.168.1.1"), "{debug}");
     }
 
     #[test]
@@ -336,17 +376,35 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn parse_body_truncates_long_error_bodies() {
-        let body = "x".repeat(MAX_ERROR_BODY * 2);
+    fn unexpected_response_body(body: &str) -> String {
         let result: Result<response::Response> =
-            parse_body(reqwest::StatusCode::INTERNAL_SERVER_ERROR, &body);
+            parse_body(reqwest::StatusCode::INTERNAL_SERVER_ERROR, body);
 
         let Err(Error::UnexpectedResponse { body, .. }) = result else {
             panic!("expected an unexpected-response error");
         };
-        assert!(body.len() < MAX_ERROR_BODY * 2);
-        assert!(body.contains("1024 bytes total"));
+        body
+    }
+
+    #[test]
+    fn parse_body_truncates_long_error_bodies() {
+        let sent = "x".repeat(MAX_ERROR_BODY_BYTES * 2);
+        let retained = unexpected_response_body(&sent);
+
+        assert!(retained.starts_with(&"x".repeat(MAX_ERROR_BODY_BYTES)));
+        assert!(retained.contains(&format!("{} bytes total", sent.len())));
+    }
+
+    /// The bound is in bytes, so it has to be walked back to a char boundary
+    /// rather than slicing through a multi-byte character.
+    #[test]
+    fn parse_body_truncates_on_a_char_boundary() {
+        let sent = "ä".repeat(MAX_ERROR_BODY_BYTES);
+        let retained = unexpected_response_body(&sent);
+
+        let kept = retained.split('…').next().unwrap();
+        assert!(kept.len() <= MAX_ERROR_BODY_BYTES);
+        assert!(kept.chars().all(|c| c == 'ä'));
     }
 
     #[test]
@@ -376,165 +434,179 @@ mod tests {
         assert_eq!(result.unwrap().into_result().unwrap(), "HallDoor");
     }
 
-    #[tokio::test]
-    async fn get_retries_on_session_timeout() {
-        let server = MockServer::start().await;
+    fn login_page() -> ResponseTemplate {
+        ResponseTemplate::new(200).set_body_string("<html>/action/login</html>")
+    }
 
+    fn panel_status() -> ResponseTemplate {
+        ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "forms": {
+                "pcondform1": { "mode": 0 },
+                "pcondform2": { "mode": 1 }
+            }
+        }))
+    }
+
+    fn ok_message(message: &str) -> ResponseTemplate {
+        ResponseTemplate::new(200)
+            .set_body_json(serde_json::json!({"result": 1, "message": message}))
+    }
+
+    /// Mounts `first` for the initial GET and a valid status for everything
+    /// after, then asserts the retry recovered. Returns the client so callers
+    /// can inspect what the retry left behind.
+    async fn assert_get_retries(server: &MockServer, first: ResponseTemplate) -> Client {
         Mock::given(method("GET"))
             .and(path("/action/panelCondGet"))
-            .respond_with(ResponseTemplate::new(200).set_body_string("<html>/action/login</html>"))
+            .respond_with(first)
             .up_to_n_times(1)
             .expect(1)
-            .mount(&server)
+            .mount(server)
             .await;
 
         Mock::given(method("GET"))
             .and(path("/action/panelCondGet"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "forms": {
-                    "pcondform1": { "mode": 0 },
-                    "pcondform2": { "mode": 1 }
-                }
-            })))
+            .respond_with(panel_status())
             .expect(1)
-            .mount(&server)
+            .mount(server)
             .await;
 
-        let modes = client(&server).get_status().await.unwrap();
+        let client = client(server);
+        let modes = client.get_status().await.unwrap();
         assert_eq!(modes.area1, Mode::Disarmed);
         assert_eq!(modes.area2, Mode::Armed);
+
+        client
+    }
+
+    /// As above for POST. `tokens` is how many times `tokenGet` is expected —
+    /// once for the initial attempt, once after the failure drops the token.
+    async fn assert_post_retries(server: &MockServer, first: ResponseTemplate, tokens: u64) {
+        Mock::given(method("GET"))
+            .and(path("/action/tokenGet"))
+            .respond_with(ok_message("tok123"))
+            .expect(tokens)
+            .mount(server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .respond_with(first)
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .respond_with(ok_message("ok"))
+            .expect(1)
+            .mount(server)
+            .await;
+
+        client(server)
+            .change_mode(Area::Area1, Mode::Disarmed)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
-    async fn post_retries_on_session_timeout() {
+    async fn get_retries_on_session_timeout() {
         let server = MockServer::start().await;
-
-        // Once for the initial attempt, once after the timeout drops the token.
-        Mock::given(method("GET"))
-            .and(path("/action/tokenGet"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"result": 1, "message": "tok123"})),
-            )
-            .expect(2)
-            .mount(&server)
-            .await;
-
-        Mock::given(method("POST"))
-            .and(path("/action/panelCondPost"))
-            .respond_with(ResponseTemplate::new(200).set_body_string("<html>/action/login</html>"))
-            .up_to_n_times(1)
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        Mock::given(method("POST"))
-            .and(path("/action/panelCondPost"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"result": 1, "message": "ok"})),
-            )
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        let result = client(&server)
-            .change_mode(Area::Area1, Mode::Disarmed)
-            .await;
-        assert!(result.is_ok());
+        assert_get_retries(&server, login_page()).await;
     }
 
     #[tokio::test]
     async fn get_retries_on_unauthorized() {
         let server = MockServer::start().await;
+        assert_get_retries(&server, ResponseTemplate::new(401)).await;
+    }
+
+    #[tokio::test]
+    async fn post_retries_on_session_timeout() {
+        let server = MockServer::start().await;
+        assert_post_retries(&server, login_page(), 2).await;
+    }
+
+    #[tokio::test]
+    async fn post_retries_on_unauthorized() {
+        let server = MockServer::start().await;
+        assert_post_retries(&server, ResponseTemplate::new(401), 2).await;
+    }
+
+    /// A GET does not send the token, but it must still drop it — otherwise the
+    /// next POST would present one the panel has already forgotten.
+    #[tokio::test]
+    async fn get_timeout_drops_the_cached_token() {
+        let server = MockServer::start().await;
+
+        let client = assert_get_retries(&server, login_page()).await;
+        assert_eq!(*client.token_slot(), None);
+    }
+
+    /// The redirect is detected by the final URL rather than the body, so the
+    /// login page here deliberately does not mention the login path.
+    #[tokio::test]
+    async fn retries_when_the_panel_redirects_to_login() {
+        let server = MockServer::start().await;
 
         Mock::given(method("GET"))
             .and(path("/action/panelCondGet"))
-            .respond_with(ResponseTemplate::new(401))
+            .respond_with(ResponseTemplate::new(302).insert_header("location", "/action/login"))
             .up_to_n_times(1)
             .expect(1)
             .mount(&server)
             .await;
 
         Mock::given(method("GET"))
+            .and(path("/action/login"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("<html>please sign in</html>"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
             .and(path("/action/panelCondGet"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "forms": {
-                    "pcondform1": { "mode": 0 },
-                    "pcondform2": { "mode": 1 }
-                }
-            })))
+            .respond_with(panel_status())
             .expect(1)
             .mount(&server)
             .await;
 
         let modes = client(&server).get_status().await.unwrap();
         assert_eq!(modes.area1, Mode::Disarmed);
-        assert_eq!(modes.area2, Mode::Armed);
     }
 
+    /// A session that expires between fetching the token and using it must
+    /// still recover: the retried unit includes the token fetch.
     #[tokio::test]
-    async fn post_retries_on_unauthorized() {
+    async fn post_retries_when_the_token_fetch_times_out() {
         let server = MockServer::start().await;
 
-        // Once for the initial attempt, once after the 401 drops the token.
         Mock::given(method("GET"))
             .and(path("/action/tokenGet"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"result": 1, "message": "tok123"})),
-            )
-            .expect(2)
-            .mount(&server)
-            .await;
-
-        Mock::given(method("POST"))
-            .and(path("/action/panelCondPost"))
-            .respond_with(ResponseTemplate::new(401))
+            .respond_with(login_page())
             .up_to_n_times(1)
             .expect(1)
             .mount(&server)
             .await;
 
-        Mock::given(method("POST"))
-            .and(path("/action/panelCondPost"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"result": 1, "message": "ok"})),
-            )
+        Mock::given(method("GET"))
+            .and(path("/action/tokenGet"))
+            .respond_with(ok_message("tok123"))
             .expect(1)
             .mount(&server)
             .await;
 
-        let result = client(&server)
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .respond_with(ok_message("ok"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        client(&server)
             .change_mode(Area::Area1, Mode::Disarmed)
-            .await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn get_timeout_drops_the_cached_token() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("GET"))
-            .and(path("/action/panelCondGet"))
-            .respond_with(ResponseTemplate::new(200).set_body_string("<html>/action/login</html>"))
-            .up_to_n_times(1)
-            .mount(&server)
-            .await;
-
-        Mock::given(method("GET"))
-            .and(path("/action/panelCondGet"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "forms": { "pcondform1": { "mode": 0 }, "pcondform2": { "mode": 0 } }
-            })))
-            .mount(&server)
-            .await;
-
-        let client = client(&server);
-        *client.token.lock().unwrap() = Some("stale".into());
-        client.get_status().await.unwrap();
-
-        assert_eq!(*client.token.lock().unwrap(), None);
+            .await
+            .unwrap();
     }
 }
