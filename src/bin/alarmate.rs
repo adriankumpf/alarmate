@@ -12,13 +12,13 @@ struct ConnectionArgs {
     #[arg(env = "ALARMATE_IP_ADDRESS", short = 'I', long)]
     ip_address: Ipv4Addr,
 
-    /// The password
-    #[arg(env = "ALARMATE_PASSWORD", short = 'P', long, hide_env_values = true)]
-    password: String,
-
     /// The user name
     #[arg(env = "ALARMATE_USERNAME", short = 'U', long)]
     username: String,
+
+    /// The password. Prefer ALARMATE_PASSWORD: arguments are visible via `ps`
+    #[arg(env = "ALARMATE_PASSWORD", short = 'P', long, hide_env_values = true)]
+    password: String,
 }
 
 impl ConnectionArgs {
@@ -28,6 +28,7 @@ impl ConnectionArgs {
 }
 
 #[derive(Parser)]
+#[command(version, about)]
 enum Opt {
     /// List devices
     Devices {
@@ -56,7 +57,9 @@ enum Opt {
     },
 }
 
-#[tokio::main]
+// The CLI issues a couple of sequential requests and exits; a worker pool per
+// invocation buys nothing.
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     if let Err(e) = run().await {
         eprintln!("error: {e}");

@@ -33,7 +33,8 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help  Print help information
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 Connection options (`-I`, `-U`, `-P`) are required for all commands and can also

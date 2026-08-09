@@ -6,29 +6,45 @@
 
 - `Client` methods take `&self` instead of `&mut self`, so one client can be
   shared across tasks behind an `Arc`
-- `Error` is now `#[non_exhaustive]`
+- `Error` and its `UnexpectedResponse` variant are now `#[non_exhaustive]`
 - Rename `DeviceKind::ThermostatRcs_` to `ThermostatRcs`
 - Drop the unused `clap::ValueEnum` derive from `Status`, `State` and
   `DeviceKind`
+- `build-binary` no longer implies the `clap` and `tokio` optional-dependency
+  features; depend on `build-binary` itself
 
 ### Added
 
 - Export `State` and `Status`, which were reachable through `Device`'s public
   fields but could not be named
-- `Modes::get(area)` to look up a mode by `Area`
+- Re-export `StatusCode`, so `Error::UnexpectedResponse` can be inspected
+  without depending on `reqwest` directly
+- `Modes` implements `Index<Area>`, so an area's mode can be looked up
+  dynamically: `modes[Area::Area1]`
+- `Client` implements `Debug`, redacting the credentials, so it can sit in a
+  `Debug` application state
+- `Clone`, `PartialEq` and `Eq` for `Device` and `Modes` (`Modes` is also `Copy`)
 - Long forms for the CLI connection flags (`--ip-address`, `--username`,
   `--password`), which the README already documented
+- `alarmate --version`, and the crate description in `--help`
+- Crate metadata for publishing: `description`, `repository`, `license`,
+  `keywords`, `categories` and a `rust-version` of 1.85
 
 ### Changed
 
 - Retry on HTTP 401 Unauthorized errors in addition to session timeouts; the
   panel returns both transiently
+- Treat a redirect to the panel's login page as a session timeout, which
+  detects an expired session even when the login page itself does not mention
+  the login path
 
 ### Fixed
 
 - `--help` no longer prints the value of `ALARMATE_PASSWORD` in cleartext
 - A session timeout during a GET now drops the cached token, instead of leaving
   a dead one behind for the next POST to fail on
+- A session that expires while fetching a token is now retried; previously only
+  the action request itself was, so the token fetch failed the whole call
 - Fetching a token no longer nests one retry inside another, which let a single
   `change_mode` issue up to six requests
 - Enum values now round-trip through serde: `Deserialize` accepts the variant
@@ -40,8 +56,9 @@
 
 - Add request and connect timeouts, and disable proxy auto-detection so
   credentials cannot be routed through a `HTTPS_PROXY`
-- Bound the response body retained in `Error::UnexpectedResponse`
+- Bound the response body retained in `Error::UnexpectedResponse` to 512 bytes
 - Only reparse a response body without tabs when it fails to parse with them
+- The CLI uses a current-thread runtime rather than a worker pool
 - Update dependencies
 
 ## [0.4.0] - 2026-02-22

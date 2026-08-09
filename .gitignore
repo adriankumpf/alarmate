@@ -1,2 +1,6 @@
 /target
 **/*.rs.bk
+
+# Local credentials for the panel
+/.env
+/.mise.toml
