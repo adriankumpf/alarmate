@@ -14,7 +14,7 @@ cargo build --release --features="build-binary"
 
 ```toml
 [dependencies]
-alarmate = { git = "https://github.com/adriankumpf/alarmate", tag = "v0.4.0" }
+alarmate = { git = "https://github.com/adriankumpf/alarmate", tag = "v0.5.0" }
 ```
 
 ## Usage
@@ -23,6 +23,8 @@ alarmate = { git = "https://github.com/adriankumpf/alarmate", tag = "v0.4.0" }
 
 ```bash
 $ alarmate --help
+
+A Rust client for the LUPUSEC XT2 alarm panel API
 
 Usage: alarmate <COMMAND>
 
