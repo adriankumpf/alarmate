@@ -6,7 +6,7 @@ use std::fmt;
 use std::future::Future;
 use std::net::Ipv4Addr;
 use std::sync::{Mutex, MutexGuard};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::Modes;
 use crate::constants::{Area, Mode};
@@ -22,6 +22,9 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// The panel serves full HTML pages on failure, which are large and of little
 /// diagnostic value beyond their first few lines.
 const MAX_ERROR_BODY_BYTES: usize = 512;
+
+// The panel can discard idle sessions without notifying the client.
+const TOKEN_TTL: Duration = Duration::from_secs(60);
 
 /// The path the panel serves once a session has expired.
 const LOGIN_PATH: &str = "/action/login";
@@ -40,7 +43,12 @@ pub struct Client {
     username: String,
     password: String,
     base_url: reqwest::Url,
-    token: Mutex<Option<String>>,
+    token: Mutex<Option<CachedToken>>,
+}
+
+struct CachedToken {
+    value: String,
+    expires_at: Instant,
 }
 
 /// Redacts the credentials, so a `Client` can sit in a `Debug` application
@@ -222,22 +230,31 @@ impl Client {
             .await?)
     }
 
-    fn token_slot(&self) -> MutexGuard<'_, Option<String>> {
+    fn token_slot(&self) -> MutexGuard<'_, Option<CachedToken>> {
         self.token.lock().expect("token lock poisoned")
+    }
+
+    fn cached_token(&self) -> Option<String> {
+        let slot = self.token_slot();
+        let cached = slot.as_ref()?;
+
+        (Instant::now() < cached.expires_at).then(|| cached.value.clone())
     }
 
     /// Tasks that miss the cache concurrently will each fetch a token; the last
     /// one wins. Not worth serializing for a handful of requests.
     async fn token(&self) -> Result<String> {
-        let cached = self.token_slot().clone();
-        if let Some(token) = cached {
+        if let Some(token) = self.cached_token() {
             return Ok(token);
         }
 
         // Not routed through `retrying`: the caller already retries this fetch,
         // and nesting the two would multiply the requests one call can make.
         let token = parse::<response::Response>(self.send_get("tokenGet").await?).await?;
-        *self.token_slot() = Some(token.clone());
+        *self.token_slot() = Some(CachedToken {
+            value: token.clone(),
+            expires_at: Instant::now() + TOKEN_TTL,
+        });
 
         Ok(token)
     }
@@ -311,7 +328,7 @@ fn truncate(body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn client(server: &MockServer) -> Client {
@@ -338,7 +355,10 @@ mod tests {
     #[test]
     fn debug_redacts_the_credentials() {
         let client = Client::new("user", "hunter2", "192.168.1.1".parse().unwrap()).unwrap();
-        *client.token_slot() = Some("tok123".into());
+        *client.token_slot() = Some(CachedToken {
+            value: "tok123".into(),
+            expires_at: Instant::now() + TOKEN_TTL,
+        });
 
         let debug = format!("{client:?}");
         assert!(!debug.contains("hunter2"), "{debug}");
@@ -534,6 +554,67 @@ mod tests {
         assert_post_retries(&server, ResponseTemplate::new(401), 2).await;
     }
 
+    #[tokio::test]
+    async fn a_token_is_reused_within_its_ttl() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/action/tokenGet"))
+            .respond_with(ok_message("tok123"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .and(header("x-token", "tok123"))
+            .respond_with(ok_message("ok"))
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        let client = client(&server);
+        client
+            .change_mode(Area::Area1, Mode::Disarmed)
+            .await
+            .unwrap();
+        let expires_at = client.token_slot().as_ref().unwrap().expires_at;
+
+        client.change_mode(Area::Area1, Mode::Armed).await.unwrap();
+        assert_eq!(client.token_slot().as_ref().unwrap().expires_at, expires_at);
+    }
+
+    #[tokio::test]
+    async fn an_expired_token_is_refetched() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/action/tokenGet"))
+            .respond_with(ok_message("fresh"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        Mock::given(method("POST"))
+            .and(path("/action/panelCondPost"))
+            .and(header("x-token", "fresh"))
+            .respond_with(ok_message("ok"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = client(&server);
+        *client.token_slot() = Some(CachedToken {
+            value: "stale".into(),
+            expires_at: Instant::now(),
+        });
+
+        client
+            .change_mode(Area::Area1, Mode::Disarmed)
+            .await
+            .unwrap();
+    }
+
     /// A GET does not send the token, but it must still drop it — otherwise the
     /// next POST would present one the panel has already forgotten.
     #[tokio::test]
@@ -541,7 +622,7 @@ mod tests {
         let server = MockServer::start().await;
 
         let client = assert_get_retries(&server, login_page()).await;
-        assert_eq!(*client.token_slot(), None);
+        assert!(client.token_slot().is_none());
     }
 
     /// The redirect is detected by the final URL rather than the body, so the
