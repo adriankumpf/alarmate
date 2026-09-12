@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-12
+
 ### Changed
 
 - Refetch cached panel tokens after 60 seconds to avoid failures after idle periods.
@@ -96,7 +98,8 @@
 
 ## [0.1.0] - 2019-01-14
 
-[unreleased]: https://github.com/adriankumpf/alarmate/compare/v0.5.0...HEAD
+[unreleased]: https://github.com/adriankumpf/alarmate/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/adriankumpf/alarmate/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/adriankumpf/alarmate/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/adriankumpf/alarmate/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/adriankumpf/alarmate/compare/v0.2.0...v0.3.0
