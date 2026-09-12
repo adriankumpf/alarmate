@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Refetch cached panel tokens after 60 seconds to avoid failures after idle periods.
+
 ## [0.5.0] - 2026-08-10
 
 ### Breaking Changes
